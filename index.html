@@ -329,6 +329,7 @@
         };
         
         const formatPercent = function(val) { 
+            if (isNaN(val) || !isFinite(val)) return 'N/A';
             let prefix = "";
             if (Math.sign(val) === 1) { prefix = "+"; }
             return prefix + val.toFixed(2) + '%'; 
@@ -422,7 +423,7 @@
         // Helper to query historical price or FX rate at a specific target Date
         function getHistoricalPriceOnDate(cacheObj, targetDate) {
             if (!cacheObj || !cacheObj.timestamps || cacheObj.timestamps.length === 0) {
-                return cacheObj ? cacheObj.currentPrice : 1;
+                return cacheObj ? cacheObj.currentPrice : null;
             }
             const targetSec = Math.floor(targetDate.getTime() / 1000);
             let price = cacheObj.closes[0] || cacheObj.currentPrice;
@@ -699,11 +700,11 @@
             // Update Live Spot FX Badges directly from Yahoo Finance data
             const usdSgdCache = assetDataCache['USDSGD=X'];
             const usdHkdCache = assetDataCache['USDHKD=X'];
-            if (usdSgdCache) {
+            if (usdSgdCache && usdSgdCache.currentPrice) {
                 window.fxRates.SGD = usdSgdCache.currentPrice;
                 document.getElementById('fxRateBadgeSGD').innerText = '1 USD = ' + usdSgdCache.currentPrice.toFixed(3) + ' SGD';
             }
-            if (usdHkdCache) {
+            if (usdHkdCache && usdHkdCache.currentPrice) {
                 window.fxRates.HKD = usdHkdCache.currentPrice;
                 document.getElementById('fxRateBadgeHKD').innerText = '1 USD = ' + usdHkdCache.currentPrice.toFixed(3) + ' HKD';
             }
@@ -771,6 +772,7 @@
 
             const spyCache = assetDataCache['SPY'];
             const spyLivePrice = spyCache ? spyCache.currentPrice : 500;
+            const fallbackUsdSgd = window.fxRates.SGD || 1.34;
 
             combinedTransactions.forEach(function(tx) {
                 const currency = getTickerCurrency(tx.ticker);
@@ -778,10 +780,10 @@
                 // Get historical FX rate on transaction date
                 let historicalFxToSGD = 1;
                 if (currency === 'USD') {
-                    historicalFxToSGD = getHistoricalPriceOnDate(usdSgdCache, tx.date);
+                    historicalFxToSGD = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
                 } else if (currency === 'HKD') {
-                    const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date);
-                    const hUsdHkd = getHistoricalPriceOnDate(usdHkdCache, tx.date);
+                    const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
+                    const hUsdHkd = getHistoricalPriceOnDate(assetDataCache['USDHKD=X'], tx.date) || (window.fxRates.HKD || 7.82);
                     historicalFxToSGD = hUsdSgd / hUsdHkd;
                 }
 
@@ -793,8 +795,8 @@
                 if (tx.action === 'buy') {
                     userCashflowsSGD.push({ date: tx.date, amount: -sgdAmount });
 
-                    // Hypothetical S&P 500 purchase on transaction date: Convert SGD to USD on that date, then buy SPY
-                    const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date);
+                    // Hypothetical S&P 500 purchase on transaction date
+                    const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
                     const usdAmount = sgdAmount / hUsdSgd;
                     const hSpyPrice = getHistoricalPriceOnDate(spyCache, tx.date);
                     if (hSpyPrice > 0) {
@@ -804,7 +806,7 @@
                     userCashflowsSGD.push({ date: tx.date, amount: sgdAmount });
 
                     // Sell SPY equivalent on that date
-                    const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date);
+                    const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
                     const usdAmount = sgdAmount / hUsdSgd;
                     const hSpyPrice = getHistoricalPriceOnDate(spyCache, tx.date);
                     if (hSpyPrice > 0) {
@@ -868,14 +870,17 @@
 
         // --- Exact Money-Weighted Return Solver (Newton-Raphson XIRR Method) ---
         function calculateXIRR(cashflows) {
-            if (cashflows.length < 2) return 0;
+            if (cashflows.length < 2) return NaN;
             
             let rate = 0.1; // Initial guess
             const maxIter = 100;
             const tol = 0.0001;
             
-            // Find earliest date
             const minDate = cashflows.reduce(function(min, p) { return p.date < min ? p.date : min; }, cashflows[0].date);
+            const maxDate = cashflows.reduce(function(max, p) { return p.date > max ? p.date : max; }, cashflows[0].date);
+            
+            // Prevent infinity crash if all transactions happened strictly on the exact same day
+            if (maxDate - minDate < 86400000) return NaN; 
             
             for (let iter = 0; iter < maxIter; iter++) {
                 let f = 0;
@@ -887,13 +892,15 @@
                     f += cashflows[i].amount / exp;
                     df -= years * cashflows[i].amount / Math.pow(1 + rate, years + 1);
                 }
-                if (Math.abs(f) < tol) break;
+                
+                if (Math.abs(f) < tol) return rate * 100; 
                 if (df === 0) break;
+                
                 const newRate = rate - (f / df);
                 if (isNaN(newRate) || !isFinite(newRate)) break;
                 rate = newRate;
             }
-            return rate * 100;
+            return NaN; // Failed to converge
         }
 
         function updateDashboard(totalValueSGD, totalCostSGD, sp500ValueSGD, mwrXirr) {
@@ -928,7 +935,8 @@
             }
 
             // --- Update MWR & TWR ---
-            const mwrEst = isNaN(mwrXirr) ? totalGainPercent : mwrXirr;
+            // If XIRR fails to converge, fallback to simple absolute return
+            const mwrEst = (isNaN(mwrXirr) || !isFinite(mwrXirr)) ? totalGainPercent : mwrXirr;
             const twrEst = totalGainPercent * 0.95; 
 
             document.getElementById('mwrValue').innerText = formatPercent(mwrEst);
@@ -938,6 +946,7 @@
             document.getElementById('twrValue').className = 'text-lg font-bold tracking-tight ' + (Math.sign(twrEst) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400');
 
             // --- Real S&P 500 Opportunity Cost in SGD ---
+            // We use the fully benchmarked sp500ValueSGD calculated in the transaction loop
             document.getElementById('sp500Value').innerText = formatCurrency(sp500ValueSGD, 'SGD');
             document.getElementById('cashValue').innerText = formatCurrency(totalCostSGD, 'SGD');
 
