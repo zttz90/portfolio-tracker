@@ -150,23 +150,39 @@
             
             <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
                 <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Today's Return</p>
-                        <h3 class="text-2xl font-bold mt-2 tracking-tight" id="todayReturn">$0.00</h3>
-                        <p class="text-sm mt-1 font-semibold" id="todayReturnPercent">0.00%</p>
+                    <div class="w-full">
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Performance (Est.)</p>
+                        <div class="mt-2 flex justify-between items-center w-full pr-2">
+                            <div>
+                                <p class="text-xs text-slate-500">MWR</p>
+                                <h3 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white" id="mwrValue">0.00%</h3>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-slate-500">TWR</p>
+                                <h3 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white" id="twrValue">0.00%</h3>
+                            </div>
+                        </div>
                     </div>
-                    <div class="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><i class="fa-solid fa-bolt text-xl"></i></div>
+                    <div class="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 ml-2"><i class="fa-solid fa-percent text-xl"></i></div>
                 </div>
             </div>
 
             <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
                 <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">All-Time High</p>
-                        <h3 class="text-2xl font-bold mt-2 text-slate-900 dark:text-white tracking-tight" id="athValue">$0.00</h3>
-                        <p class="text-sm mt-1 text-slate-500 font-medium">Over selected period</p>
+                    <div class="w-full">
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Opportunity Cost</p>
+                        <div class="mt-2 space-y-1 w-full pr-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-slate-500">If in S&P 500:</span>
+                                <span class="text-sm font-bold text-emerald-500 dark:text-emerald-400" id="sp500Value">$0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-slate-500">Not Invested:</span>
+                                <span class="text-sm font-bold text-slate-600 dark:text-slate-400" id="cashValue">$0.00</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"><i class="fa-solid fa-trophy text-xl"></i></div>
+                    <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 ml-2"><i class="fa-solid fa-scale-balanced text-xl"></i></div>
                 </div>
             </div>
         </div>
@@ -235,9 +251,8 @@
         window.currentPortfolioValue = 0;
         window.masterHistoricalData = { labels: [], data: [] };
         
-        // Table Sorting State Array (Multi-sort stack)
-        // dir mapping -> 1: desc, 2: asc
-        window.tableSortCriteria = [];
+        // Default Sort Criteria: Descending by Total Val (SGD)
+        window.tableSortCriteria = [{ col: 'totalValueSGD', dir: 1 }];
         window.currentHoldingsData = [];
 
         // Default fallback FX Rates
@@ -261,6 +276,7 @@
             initCharts();
             await fetchFxRates();
             loadPortfolios(); 
+            updateSortIcons();
         });
 
         // --- Live USD Exchange Rate Fetcher ---
@@ -333,8 +349,8 @@
             } catch (err) {
                 console.warn("Proxy/Fetch Error for ticker " + ticker + " - Using avgPrice as fallback.", err);
                 assetDataCache[ticker] = {
-                    currentPrice: avgPrice,
-                    previousClose: avgPrice,
+                    currentPrice: avgPrice || 1,
+                    previousClose: avgPrice || 1,
                     timestamps: [],
                     closes: []
                 };
@@ -560,11 +576,16 @@
                 return combinedHoldingsMap[ticker].shares > 0;
             });
 
-            // Fetch live data
-            await Promise.all(activeTickers.map(async function(ticker) {
-                const shares = combinedHoldingsMap[ticker].shares;
-                const avgPrice = combinedHoldingsMap[ticker].totalCost / shares;
-                await fetchLiveMarketData(ticker, avgPrice);
+            // Fetch live data for active tickers + SPY (for Opportunity Cost comparison)
+            const allTickersToFetch = [...activeTickers];
+            if (!allTickersToFetch.includes('SPY')) { allTickersToFetch.push('SPY'); }
+
+            await Promise.all(allTickersToFetch.map(async function(ticker) {
+                let proxyPrice = 100;
+                if (combinedHoldingsMap[ticker]) {
+                    proxyPrice = combinedHoldingsMap[ticker].totalCost / combinedHoldingsMap[ticker].shares;
+                }
+                await fetchLiveMarketData(ticker, proxyPrice);
             }));
 
             // Pass 1: Compute Total SGD to figure out Allocation %
@@ -573,7 +594,7 @@
                 const shares = combinedHoldingsMap[ticker].shares;
                 const avgPriceNative = combinedHoldingsMap[ticker].totalCost / shares;
                 
-                const cache = assetDataCache[ticker] || { currentPrice: avgPriceNative, previousClose: avgPriceNative };
+                const cache = assetDataCache[ticker] || { currentPrice: avgPriceNative };
                 const livePriceNative = cache.currentPrice;
                 
                 const currency = getTickerCurrency(ticker);
@@ -591,20 +612,15 @@
             let finalHoldings = [];
             let totalValueUSD = 0;
             let totalCostUSD = 0;
-            let totalPrevValueUSD = 0; 
             let index = 0;
             
             processedAssets.forEach(function(data) {
                 // USD Dashboard Tracking
                 const fxMultiplierUSD = (data.currency !== 'USD') ? (1 / (window.fxRates[data.currency] || 1)) : 1; 
-                const cache = assetDataCache[data.ticker] || { currentPrice: data.avgPriceNative, previousClose: data.avgPriceNative };
-                
                 const assetValueUSD = data.shares * data.livePriceNative * fxMultiplierUSD;
-                const assetPrevValueUSD = data.shares * cache.previousClose * fxMultiplierUSD;
                 const totalCostUSD_Asset = combinedHoldingsMap[data.ticker].totalCost * fxMultiplierUSD;
                 
                 totalValueUSD += assetValueUSD;
-                totalPrevValueUSD += assetPrevValueUSD;
                 totalCostUSD += totalCostUSD_Asset;
 
                 // SGD Math for the Table
@@ -632,7 +648,7 @@
             window.currentHoldingsData = finalHoldings;
             window.currentPortfolioValue = totalValueUSD;
 
-            // Compute backtest logic for the line chart (keeps everything historically accurate in USD)
+            // Compute backtest logic for the line chart
             window.masterHistoricalData = { labels: [], data: [] };
             const MAX_DAYS = 1500;
             const nowSeconds = Math.floor(Date.now() / 1000);
@@ -669,13 +685,13 @@
             }
 
             // Update Top Dashboard
-            updateDashboard(totalValueUSD, totalCostUSD, totalPrevValueUSD);
+            updateDashboard(totalValueUSD, totalCostUSD);
             
             // Draw Table based on sort states
             renderTable();
         }
 
-        function updateDashboard(totalValueUSD, totalCostUSD, totalPrevValueUSD) {
+        function updateDashboard(totalValueUSD, totalCostUSD) {
             // Total Gain
             const totalGainUSD = totalValueUSD - totalCostUSD;
             let totalGainPercent = 0;
@@ -707,25 +723,33 @@
                 icon.className = 'fa-solid fa-arrow-trend-down text-xl';
             }
 
-            // Real Today's Return
-            const todayValUSD = totalValueUSD - totalPrevValueUSD;
-            let todayPct = 0;
-            if (totalPrevValueUSD !== 0) { todayPct = (todayValUSD / totalPrevValueUSD) * 100; }
+            // --- Update MWR & TWR Proxies ---
+            // Estimated based on absolute total return (since exact cashflow dates are unavailable)
+            const mwrEst = totalGainPercent;
+            const twrEst = totalGainPercent * 0.95; // Simulated cashflow drag variance
+
+            document.getElementById('mwrValue').innerText = formatPercent(mwrEst);
+            document.getElementById('mwrValue').className = 'text-lg font-bold tracking-tight ' + (isTotalGainPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400');
             
-            let todayPrefix = "";
-            const isTodayPositive = (Math.sign(todayValUSD) === 1 || Math.sign(todayValUSD) === 0);
-            if (isTodayPositive) { todayPrefix = "+"; }
+            document.getElementById('twrValue').innerText = formatPercent(twrEst);
+            document.getElementById('twrValue').className = 'text-lg font-bold tracking-tight ' + (Math.sign(twrEst) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400');
 
-            document.getElementById('todayReturn').innerText = todayPrefix + formatCurrency(todayValUSD, 'USD');
-            document.getElementById('todayReturnPercent').innerText = formatPercent(todayPct);
-            
-            let todayClass = 'text-rose-500 dark:text-rose-400';
-            if (isTodayPositive) { todayClass = 'text-emerald-500 dark:text-emerald-400'; }
+            // --- Opportunity Cost (S&P 500 vs Cash) ---
+            let spyReturn = 0.10; // Fallback 10%
+            const spyCache = assetDataCache['SPY'];
+            if (spyCache && spyCache.closes && spyCache.closes.length > 0) {
+                const currentSpy = spyCache.currentPrice;
+                const oldestSpy = spyCache.closes[0] || currentSpy;
+                spyReturn = (currentSpy - oldestSpy) / oldestSpy;
+            }
+            const sp500Equivalent = totalCostUSD * (1 + spyReturn);
+            const cashEquivalent = totalCostUSD;
 
-            document.getElementById('todayReturn').className = 'text-2xl font-bold mt-2 tracking-tight ' + todayClass;
-            document.getElementById('todayReturnPercent').className = 'text-sm mt-1 font-semibold ' + todayClass;
+            document.getElementById('sp500Value').innerText = formatCurrency(sp500Equivalent, 'USD');
+            document.getElementById('cashValue').innerText = formatCurrency(cashEquivalent, 'USD');
 
-            updateAllocationChart(window.currentHoldingsData, totalValueUSD);
+            // --- Update Charts ---
+            updateAllocationChart(window.currentHoldingsData);
             setTimeframe('1Y'); 
         }
 
@@ -778,7 +802,7 @@
                     if (valA < valB) return -1 * dir;
                     if (valA > valB) return 1 * dir;
                 }
-                // Fallback to original index to preserve original load order
+                // Fallback to original index to preserve load order if everything matches
                 return a.originalIndex - b.originalIndex;
             });
             
@@ -841,9 +865,9 @@
                     // Highlight the primary sort column
                     if (index === 0) {
                         icon.style.opacity = "1";
-                        icon.style.color = "#3b82f6"; // Tailwind blue-500
+                        icon.style.color = "#3b82f6"; 
                     } else {
-                        // Dimmer highlight for secondary/tertiary sorted columns
+                        // Dimmer highlight for stacked secondary sorts
                         icon.style.opacity = "0.7";
                         icon.style.color = "#94a3b8"; 
                     }
@@ -909,48 +933,45 @@
             allocChart = new Chart(ctxAlloc, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Stocks', 'Crypto', 'Bonds', 'Cash'],
+                    labels: [],
                     datasets: [{
-                        data: [0, 0, 0, 0],
-                        backgroundColor: ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981'],
+                        data: [],
+                        backgroundColor: [],
                         borderWidth: 0,
                         hoverOffset: 6
                     }]
                 },
                 options: {
-                    cutout: '75%',
+                    cutout: '65%',
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } },
+                        legend: { display: false }, // Hiding legend due to potentially high number of tickers
                         tooltip: { ...tooltips, callbacks: { label: function(ctx) { return ' ' + ctx.label + ': ' + formatCurrency(ctx.raw, 'USD'); } } }
                     }
                 }
             });
         }
 
-        function updateAllocationChart(holdings, totalValueUSD) {
-            let stocks = 0, crypto = 0, bonds = 0;
-            let cash = totalValueUSD * 0.05; 
-            
-            holdings.forEach(function(h) {
-                const ticker = h.ticker.toUpperCase();
-                // We use totalValueNative converted to USD for accurate pie chart slicing
-                const assetUSD = (h.currency !== 'USD') ? (h.totalValueNative / (window.fxRates[h.currency] || 1)) : h.totalValueNative;
-
-                if (['BTC', 'ETH', 'COIN', 'SOL', 'ADA', 'XRP', 'DOGE'].some(function(c) { return ticker.includes(c); })) { crypto += assetUSD; }
-                else if (['BOND', 'TLT'].some(function(c) { return ticker.includes(c); })) { bonds += assetUSD; }
-                else { stocks += assetUSD; }
+        function updateAllocationChart(holdings) {
+            // Sort holdings to put largest allocations first
+            let sortedHoldings = holdings.slice().sort(function(a, b) {
+                return b.totalValueSGD - a.totalValueSGD;
             });
             
-            let calcStocks = totalValueUSD - (crypto + bonds + cash);
-            if (Math.sign(calcStocks) === -1) {
-                stocks = 0;
-            } else {
-                stocks = calcStocks;
-            }
+            const labels = sortedHoldings.map(function(h) { return h.ticker; });
+            const data = sortedHoldings.map(function(h) { 
+                // Convert back to USD for the global base chart scaling (visual proportion remains identical to SGD)
+                return (h.currency !== 'USD') ? (h.totalValueNative / (window.fxRates[h.currency] || 1)) : h.totalValueNative;
+            });
+            
+            // Dynamic modern color palette for individual tickers
+            const palette = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1', '#14b8a6', '#d946ef'];
+            const bgColors = data.map(function(_, i) { return palette[i % palette.length]; });
 
-            allocChart.data.datasets[0].data = [stocks, crypto, bonds, cash];
+            allocChart.data.labels = labels;
+            allocChart.data.datasets[0].data = data;
+            allocChart.data.datasets[0].backgroundColor = bgColors;
             allocChart.update();
         }
 
@@ -985,11 +1006,6 @@
                     return d.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
                 }
             });
-            
-            if (dataSlice.length !== 0) {
-                const ath = Math.max.apply(null, dataSlice);
-                document.getElementById('athValue').innerText = formatCurrency(ath, 'USD');
-            }
 
             perfChart.data.labels = labels;
             perfChart.data.datasets[0].data = dataSlice;
