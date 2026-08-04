@@ -78,7 +78,6 @@
         </div>
     </div>
 
-
     <!-- ======================= -->
     <!--    DASHBOARD SECTION    -->
     <!-- ======================= -->
@@ -337,11 +336,10 @@
         </div>
     </div>
 
-
     <!-- JavaScript Engine -->
     <script>
         // ==========================================
-        //  🔒 SECURITY: PASTE YOUR ENCRYPTED STRING HERE
+        //  🔒 SECURITY: ENCRYPTED PORTFOLIO DATA
         // ==========================================
         const encryptedData = "U2FsdGVkX19WLghzSao1ZeTCzQg03sssBnSAzjHy19Qdn1LzVkETO316nvQkOrIrk24lQVKKEOIZFCoC5/r0UnGaJb7ghuFBaey4F11/C9Jk2NqMHKkkb2CZYBQX93utXWzsa+uibL/YYZoORYS3zSBd8uzwhIN/EW5FKI86rXkOxHvTKuWRtfLqs78l6/UYQJaVutxLJz18sGPjf8vCNjEXopgKb9jNfr45MLvTS/6OEQRL3U8k0MYwQp4AbApitGFecpVGfOK+gOahPMauyd0wxn95dpy05wQgQCCDcr/kzP7I+v3eXzVd8bFwH74Y+O3TZiR/M4s9EhQezQFLtCKlSbc0TdqOHsrdMbbYk8png7W+CGpd2ODaSsT4sm2qx8Z4WswDeWrF1TD1spEcVrg6zLqbABinMop1837mrKwLdrYkFnJuZ5RvGXjIZ6RL4CA8Zf+D2vExlSWmr6QZcf1TIIwB97mXwiZDDSwTpR4ZCrdBAIYFgIHX+kwwHETbsDc0vdAJMIwZ5ei8ozvE8b1UsqTM2bKunjOGrV6hxhQ+H2kCYE9QX/vxrlaGUgTv13KCvbBt1JbbDhjEJssf71rHWQVXGCc1YDF9CLMVrSgs9aLmmagsl01uBWCwppbq";
 
@@ -442,10 +440,20 @@
             if (!dateVal) return new Date();
             if (dateVal instanceof Date) return dateVal;
             
-            let d = new Date(dateVal);
+            const strVal = String(dateVal).trim();
+            
+            // Fix for Google Sheets JSON Date(YYYY, MM, DD) formatting
+            if (strVal.startsWith('Date(')) {
+                const match = strVal.match(/Date\((\d+),\s*(\d+),\s*(\d+)/);
+                if (match) {
+                    return new Date(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]));
+                }
+            }
+            
+            let d = new Date(strVal);
             if (!isNaN(d.getTime())) return d;
             
-            const parts = String(dateVal).trim().split(/[\/\-\.]/);
+            const parts = strVal.split(/[\/\-\.]/);
             if (parts.length === 3) {
                 if (parts[0].length === 4) { 
                     return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
@@ -484,7 +492,6 @@
                     cleanTicker = cleanTicker + '-USD';
                 }
 
-                // Fetching 10 Years to support older "ALL" timeframes safely
                 const targetUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(cleanTicker) + '?interval=1d&range=10y';
                 const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
                 
@@ -522,7 +529,6 @@
             }
         }
 
-        // Robust backward-scanning algorithm to completely bridge null gaps
         function getHistoricalPriceOnDate(cacheObj, targetDate) {
             if (!cacheObj || !cacheObj.timestamps || cacheObj.timestamps.length === 0) {
                 return cacheObj ? cacheObj.currentPrice : null;
@@ -1191,17 +1197,10 @@
                         legend: { display: false },
                         datalabels: { display: false }, 
                         tooltip: { ...tooltips, callbacks: { label: function(ctx) { return formatCurrency(ctx.parsed.y, 'SGD'); } } },
+                        // Safely initialize zooming config for hammer.js integration
                         zoom: {
-                            pan: {
-                                enabled: true,
-                                mode: 'x',
-                                modifierKey: null,
-                            },
-                            zoom: {
-                                wheel: { enabled: true },
-                                pinch: { enabled: true },
-                                mode: 'x'
-                            }
+                            pan: { enabled: true, mode: 'x' },
+                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
                         }
                     },
                     scales: {
@@ -1302,6 +1301,11 @@
                 else return d.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
             });
 
+            // Prevent zoom plugin memory locks before programmatic override
+            if(perfChart.resetZoom) {
+                perfChart.resetZoom('none');
+            }
+
             perfChart.data.labels = fullLabels;
             perfChart.data.datasets[0].data = window.masterHistoricalData.data;
 
@@ -1310,6 +1314,12 @@
 
             perfChart.options.scales.x.min = minIdx;
             perfChart.options.scales.x.max = maxIdx;
+            
+            // Re-apply limits so users can't pan outside real data
+            if(perfChart.options.plugins.zoom) {
+                perfChart.options.plugins.zoom.limits = { x: { min: 0, max: maxIdx }};
+            }
+
             perfChart.update();
         }
 
