@@ -354,11 +354,11 @@
         
         window.portfolioData = {}; 
         window.rawTransactions = {}; 
-        window.allTransactionsGlobally = []; // Consolidated ledger
+        window.allTransactionsGlobally = []; 
         
         window.currentPortfolioValue = 0;
         window.masterHistoricalData = { labels: [], data: [] };
-        window.firstTransactionDate = new Date(); // Dynamic "ALL" baseline
+        window.firstTransactionDate = new Date(); 
         
         window.tableSortCriteria = [{ col: 'totalValueSGD', dir: 1 }];
         window.currentHoldingsData = [];
@@ -447,9 +447,9 @@
             
             const parts = String(dateVal).trim().split(/[\/\-\.]/);
             if (parts.length === 3) {
-                if (parts[0].length === 4) { // YYYY-MM-DD
+                if (parts[0].length === 4) { 
                     return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                } else if (parts[2].length === 4) { // DD/MM/YYYY
+                } else if (parts[2].length === 4) { 
                     return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
                 }
             }
@@ -522,23 +522,21 @@
             }
         }
 
-        // Extremely robust backward-scanning algorithm to completely bridge `null` gaps from exchange holidays
+        // Robust backward-scanning algorithm to completely bridge null gaps
         function getHistoricalPriceOnDate(cacheObj, targetDate) {
             if (!cacheObj || !cacheObj.timestamps || cacheObj.timestamps.length === 0) {
                 return cacheObj ? cacheObj.currentPrice : null;
             }
             const targetSec = Math.floor(targetDate.getTime() / 1000);
             
-            // Scan backward from the end looking for the closest valid day
             for (let i = cacheObj.timestamps.length - 1; i >= 0; i--) {
-                if (cacheObj.timestamps[i] <= targetSec + 86400) { // allow 24h grace padding
+                if (cacheObj.timestamps[i] <= targetSec + 86400) { 
                     if (cacheObj.closes[i] !== null && cacheObj.closes[i] !== undefined) {
-                        return cacheObj.closes[i]; // Found valid past price
+                        return cacheObj.closes[i]; 
                     }
                 }
             }
             
-            // If target date is before IPO/available data, grab the earliest valid forward price
             for (let i = 0; i < cacheObj.closes.length; i++) {
                 if (cacheObj.closes[i] !== null && cacheObj.closes[i] !== undefined) {
                     return cacheObj.closes[i];
@@ -787,7 +785,6 @@
                 }
             });
 
-            // Find absolute "First Transaction Date" for the ALL chart
             if (window.allTransactionsGlobally.length > 0) {
                 const earliest = Math.min(...window.allTransactionsGlobally.map(t => t.date.getTime()));
                 window.firstTransactionDate = new Date(earliest);
@@ -799,7 +796,6 @@
                 return combinedHoldingsMap[ticker].shares > 0;
             });
 
-            // Pre-fetch live & historical data for all dependencies
             const allTickersToFetch = [...activeTickers];
             if (!allTickersToFetch.includes('SPY')) { allTickersToFetch.push('SPY'); }
             if (!allTickersToFetch.includes('USDSGD=X')) { allTickersToFetch.push('USDSGD=X'); }
@@ -813,7 +809,6 @@
                 await fetchLiveMarketData(ticker, proxyPrice);
             }));
 
-            // Live Spot FX Updates
             const usdSgdCache = assetDataCache['USDSGD=X'];
             const usdHkdCache = assetDataCache['USDHKD=X'];
             if (usdSgdCache && usdSgdCache.currentPrice) {
@@ -825,7 +820,6 @@
                 document.getElementById('fxRateBadgeHKD').innerText = '1 USD = ' + usdHkdCache.currentPrice.toFixed(3) + ' HKD';
             }
 
-            // Evaluation Loop
             let totalValueSGD_global = 0;
             let totalCostSGD_global = 0;
 
@@ -880,7 +874,6 @@
             window.currentHoldingsData = finalHoldings;
             window.currentPortfolioValue = totalValueSGD_global;
 
-            // Accurate MWR & S&P Benchmark Logic
             let userCashflowsSGD = [];
             let spyAccumulatedShares = 0;
             const spyCache = assetDataCache['SPY'];
@@ -920,10 +913,9 @@
             const sp500ValueSGD = spyAccumulatedShares * spyLivePrice * window.fxRates.SGD;
             const mwrXirr = calculateXIRR(userCashflowsSGD);
 
-            // Backtest Line Chart Data (From First Date to Today)
             window.masterHistoricalData = { labels: [], data: [] };
             const daysSinceStart = Math.ceil((Date.now() - window.firstTransactionDate.getTime()) / 86400000);
-            const chartDays = Math.max(30, daysSinceStart); // Make sure chart is at least 30 days wide
+            const chartDays = Math.max(30, daysSinceStart); 
             const nowSeconds = Math.floor(Date.now() / 1000);
             
             for (let i = chartDays; i >= 0; i--) {
@@ -956,9 +948,8 @@
             renderTable();
         }
 
-        // Extremely safe Newton-Raphson XIRR Method
         function calculateXIRR(cashflows) {
-            if (cashflows.length < 2) return NaN;
+            if (!cashflows || cashflows.length < 2) return NaN;
             
             let rate = 0.1; 
             const maxIter = 100;
@@ -1021,7 +1012,6 @@
                 icon.className = 'fa-solid fa-arrow-trend-down text-xl';
             }
 
-            // Fallback gracefully to simple Return if XIRR blows up
             const mwrEst = (isNaN(mwrXirr) || !isFinite(mwrXirr)) ? totalGainPercent : mwrXirr;
             const twrEst = totalGainPercent * 0.95; 
 
@@ -1038,9 +1028,6 @@
             setTimeframe('1Y'); 
         }
 
-        // ==========================================
-        //  SORTING & RENDERING TABLE
-        // ==========================================
         function handleSort(col) {
             let existingIndex = window.tableSortCriteria.findIndex(function(c) { return c.col === col; });
             
@@ -1097,7 +1084,6 @@
                     gainSign = "+";
                 }
                 
-                // ADDED ONCLICK HOOK TO ROW
                 const tr = document.createElement('tr');
                 tr.setAttribute('onclick', 'openStockModal("' + h.ticker + '")');
                 tr.className = 'border-b border-gray-100 dark:border-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-800/80 transition-colors group cursor-pointer';
@@ -1159,8 +1145,9 @@
         //  CHARTING ENGINE
         // ==========================================
         function initCharts() {
-            Chart.register(ChartDataLabels);
-            Chart.register(window['chartjs-plugin-zoom']); // Register Zoom Plugin
+            if (typeof ChartDataLabels !== 'undefined') {
+                Chart.register(ChartDataLabels);
+            }
             
             const isDark = document.documentElement.classList.contains('dark');
             Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
@@ -1265,7 +1252,6 @@
                 }
             });
 
-            // Initialize Stock Modal Chart structure
             const ctxModal = document.getElementById('modalStockChart').getContext('2d');
             modalStockChartInstance = new Chart(ctxModal, {
                 type: 'line',
@@ -1319,7 +1305,6 @@
             perfChart.data.labels = fullLabels;
             perfChart.data.datasets[0].data = window.masterHistoricalData.data;
 
-            // Apply logical panning window limits using array index bounds
             const maxIdx = window.masterHistoricalData.data.length - 1;
             const minIdx = Math.max(0, maxIdx - days);
 
@@ -1337,7 +1322,6 @@
 
             document.getElementById('modalTickerBadge').innerText = ticker;
             
-            // Stats
             document.getElementById('mStatShares').innerText = holding.shares.toLocaleString(undefined, {maximumFractionDigits:4});
             document.getElementById('mStatAvgCost').innerText = formatCurrency(holding.avgPrice, holding.currency);
             document.getElementById('mStatLive').innerText = formatCurrency(holding.currentPrice, holding.currency);
@@ -1348,10 +1332,8 @@
             const sign = isGain ? '+' : '';
             document.getElementById('mStatPnl').innerHTML = `<span class="${pnlColor}">${sign}${formatCurrency(holding.pnlSGD, 'SGD')} (${sign}${holding.pnlPercentSGD.toFixed(2)}%)</span>`;
 
-            // Draw Stock Chart
             const cache = assetDataCache[ticker];
             if (cache && cache.timestamps.length > 0) {
-                // Forward fill cleaning to make graph contiguous
                 let cleanData = [];
                 let lastValid = cache.closes.find(p => p !== null) || holding.currentPrice;
                 for(let i=0; i<cache.closes.length; i++) {
@@ -1365,11 +1347,10 @@
                 modalStockChartInstance.update();
             }
 
-            // Populate Ledger Table
             const tbody = document.getElementById('modalTransactionsBody');
             tbody.innerHTML = '';
             
-            const myTxs = window.allTransactionsGlobally.filter(t => t.ticker === ticker).sort((a,b) => b.date - a.date); // Sort latest first
+            const myTxs = window.allTransactionsGlobally.filter(t => t.ticker === ticker).sort((a,b) => b.date - a.date); 
             myTxs.forEach(tx => {
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-gray-100 dark:border-slate-700/50 hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors';
@@ -1386,17 +1367,15 @@
                 tbody.appendChild(tr);
             });
 
-            // Show Modal
             const modal = document.getElementById('stockModal');
             modal.classList.remove('hidden');
-            // Small delay to allow display:flex to apply before setting opacity for transition
             setTimeout(() => { modal.classList.remove('opacity-0', 'pointer-events-none'); }, 10);
         }
 
         function closeStockModal() {
             const modal = document.getElementById('stockModal');
             modal.classList.add('opacity-0', 'pointer-events-none');
-            setTimeout(() => { modal.classList.add('hidden'); }, 200); // match transition duration
+            setTimeout(() => { modal.classList.add('hidden'); }, 200);
         }
     </script>
 </body>
