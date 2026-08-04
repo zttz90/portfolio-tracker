@@ -105,7 +105,7 @@
                     <i class="fa-solid fa-plus-circle"></i> Add another portfolio
                 </button>
                 <button id="loadBtn" onclick="loadPortfolios()" class="w-full sm:w-auto whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-md shadow-blue-500/20">
-                    Sync All Data
+                    Sync Real Market Data
                 </button>
             </div>
         </div>
@@ -224,10 +224,11 @@
         // Master Data & Caching Objects
         window.portfolioData = {}; 
         window.currentPortfolioValue = 0;
+        window.masterHistoricalData = { labels: [], data: [] };
         
         // Default fallback FX Rates
         window.fxRates = { SGD: 1.34, HKD: 7.82 }; 
-        const priceCache = {};
+        const assetDataCache = {};
 
         const formatCurrency = function(val, currencyCode) { 
             const curr = currencyCode || 'USD';
@@ -276,10 +277,10 @@
             return 'USD';
         }
 
-        // --- Live Market Price Fetcher (Yahoo Finance via Proxy) ---
-        async function fetchLiveMarketPrice(ticker, avgPrice) {
-            if (priceCache[ticker]) {
-                return priceCache[ticker];
+        // --- Live & Historical Market Data Fetcher (Yahoo Finance via Proxy) ---
+        async function fetchLiveMarketData(ticker, avgPrice) {
+            if (assetDataCache[ticker]) {
+                return assetDataCache[ticker];
             }
 
             try {
@@ -290,39 +291,42 @@
                     cleanTicker = cleanTicker + '-USD';
                 }
 
-                const targetUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(cleanTicker) + '?interval=1d&range=1d';
-                // Using CORS proxy to bypass browser restrictions
+                // Fetch 5 Years of daily historical data for accurate charting
+                const targetUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(cleanTicker) + '?interval=1d&range=5y';
                 const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
                 
                 const response = await fetch(proxyUrl);
                 if (!response.ok) { throw new Error("Yahoo fetch error"); }
                 
                 const data = await response.json();
-                const price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+                const result = data.chart?.result?.[0];
                 
-                if (typeof price === 'number' && price > 0) {
-                    priceCache[ticker] = price;
-                    return price;
+                if (result && result.meta) {
+                    const currentPrice = result.meta.regularMarketPrice;
+                    const previousClose = result.meta.chartPreviousClose || currentPrice;
+                    const timestamps = result.timestamp || [];
+                    const closes = result.indicators?.quote?.[0]?.close || [];
+                    
+                    assetDataCache[ticker] = {
+                        currentPrice: currentPrice,
+                        previousClose: previousClose,
+                        timestamps: timestamps,
+                        closes: closes
+                    };
+                    return assetDataCache[ticker];
                 } else {
-                    console.warn("No price returned for " + cleanTicker + ". Using mocked fallback.");
-                    const fallback = generateStableMockPrice(ticker, avgPrice);
-                    priceCache[ticker] = fallback;
-                    return fallback;
+                    throw new Error("Invalid Yahoo data structure");
                 }
             } catch (err) {
-                console.warn("Proxy/Fetch Error for ticker " + ticker + " - Falling back to mock price.", err);
-                const fallback = generateStableMockPrice(ticker, avgPrice);
-                priceCache[ticker] = fallback;
-                return fallback;
+                console.warn("Proxy/Fetch Error for ticker " + ticker + " - Using avgPrice as fallback.", err);
+                assetDataCache[ticker] = {
+                    currentPrice: avgPrice,
+                    previousClose: avgPrice,
+                    timestamps: [],
+                    closes: []
+                };
+                return assetDataCache[ticker];
             }
-        }
-
-        // Deterministic Pseudo-Random Mock Price Generator (Fallback)
-        function generateStableMockPrice(ticker, avgPrice) {
-            let hash = 0;
-            for (let i = 0; i !== ticker.length; i++) { hash = ticker.charCodeAt(i) + ((hash << 5) - hash); }
-            const pseudoRandom = Math.abs(Math.sin(hash)); 
-            return avgPrice * (0.8 + (pseudoRandom * 0.6));
         }
 
         function addUrlInput() {
@@ -375,7 +379,7 @@
             window.portfolioData = {};
 
             const btn = document.getElementById('loadBtn');
-            btn.innerHTML = '\x3Ci class="fa-solid fa-spinner fa-spin mr-2"\x3E\x3C/i\x3E Syncing...';
+            btn.innerHTML = '\x3Ci class="fa-solid fa-spinner fa-spin mr-2"\x3E\x3C/i\x3E Syncing Data...';
             btn.disabled = true;
 
             let validSheetCount = 0;
@@ -446,7 +450,7 @@
 
             if (validSheetCount === 0) {
                 alert("Please enter at least one valid Google Sheets URL.");
-                btn.innerHTML = 'Sync All Data';
+                btn.innerHTML = 'Sync Real Market Data';
                 btn.disabled = false;
                 return;
             }
@@ -456,7 +460,7 @@
             renderChips();
             await recalculateSelectedPortfolios();
 
-            btn.innerHTML = 'Sync All Data';
+            btn.innerHTML = 'Sync Real Market Data';
             btn.disabled = false;
         }
 
@@ -545,30 +549,32 @@
                 return combinedHoldingsMap[ticker].shares > 0;
             });
 
-            // Fetch live prices for active tickers in parallel
+            // Fetch live & historical data in parallel
             await Promise.all(activeTickers.map(async function(ticker) {
                 const shares = combinedHoldingsMap[ticker].shares;
                 const avgPrice = combinedHoldingsMap[ticker].totalCost / shares;
-                await fetchLiveMarketPrice(ticker, avgPrice);
+                await fetchLiveMarketData(ticker, avgPrice);
             }));
 
             let finalHoldings = [];
             let totalValueUSD = 0;
             let totalCostUSD = 0;
+            let totalPrevValueUSD = 0; // For Today's Return
             
             activeTickers.forEach(function(ticker) {
                 const shares = combinedHoldingsMap[ticker].shares;
                 const avgPriceNative = combinedHoldingsMap[ticker].totalCost / shares;
                 
-                // Get Price from Cache (populated by fetchLiveMarketPrice)
-                const livePriceNative = priceCache[ticker] || generateStableMockPrice(ticker, avgPriceNative);
+                const cache = assetDataCache[ticker] || { currentPrice: avgPriceNative, previousClose: avgPriceNative };
+                const livePriceNative = cache.currentPrice;
+                const prevPriceNative = cache.previousClose;
                 
                 const currency = getTickerCurrency(ticker);
                 const fxRate = window.fxRates[currency] || 1;
                 const fxMultiplier = (currency !== 'USD') ? (1 / fxRate) : 1; 
 
-                const assetValueNative = shares * livePriceNative;
-                const assetValueUSD = assetValueNative * fxMultiplier;
+                const assetValueUSD = shares * livePriceNative * fxMultiplier;
+                const assetPrevValueUSD = shares * prevPriceNative * fxMultiplier;
                 const totalCostUSD_Asset = combinedHoldingsMap[ticker].totalCost * fxMultiplier;
                 
                 const pnlUSD = assetValueUSD - totalCostUSD_Asset;
@@ -579,6 +585,7 @@
                 }
                 
                 totalValueUSD += assetValueUSD;
+                totalPrevValueUSD += assetPrevValueUSD;
                 totalCostUSD += totalCostUSD_Asset;
                 
                 finalHoldings.push({ 
@@ -594,10 +601,51 @@
             });
 
             window.currentPortfolioValue = totalValueUSD;
-            updateDashboard(finalHoldings, totalValueUSD, totalCostUSD);
+
+            // --- Construct Master 5-Year Historical Array (Real Backtest) ---
+            window.masterHistoricalData = { labels: [], data: [] };
+            const MAX_DAYS = 1500;
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            
+            for (let i = MAX_DAYS; i >= 0; i--) {
+                const targetSeconds = nowSeconds - (i * 86400);
+                let dayTotalUSD = 0;
+                
+                activeTickers.forEach(function(ticker) {
+                    const cache = assetDataCache[ticker];
+                    const shares = combinedHoldingsMap[ticker].shares;
+                    const currency = getTickerCurrency(ticker);
+                    const fxMultiplier = (currency !== 'USD') ? (1 / (window.fxRates[currency] || 1)) : 1;
+                    
+                    let historicalPrice = cache ? cache.currentPrice : 0;
+                    
+                    if (cache && cache.timestamps && cache.timestamps.length > 0) {
+                        // Fallback to oldest available price if target date is before asset IPO/listing
+                        historicalPrice = cache.closes[0] || historicalPrice; 
+                        
+                        // Find closest price timestamp on or before the target day
+                        for (let j = cache.timestamps.length - 1; j >= 0; j--) {
+                            if (cache.timestamps[j] <= targetSeconds + 86400) {
+                                if (cache.closes[j] !== null && cache.closes[j] !== undefined) {
+                                    historicalPrice = cache.closes[j];
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    dayTotalUSD += (shares * historicalPrice * fxMultiplier);
+                });
+                
+                const d = new Date(Date.now() - (i * 86400000));
+                window.masterHistoricalData.data.push(dayTotalUSD);
+                window.masterHistoricalData.labels.push(d);
+            }
+
+            updateDashboard(finalHoldings, totalValueUSD, totalCostUSD, totalPrevValueUSD);
         }
 
-        function updateDashboard(holdings, totalValueUSD, totalCostUSD) {
+        function updateDashboard(holdings, totalValueUSD, totalCostUSD, totalPrevValueUSD) {
+            // Total Gain
             const totalGainUSD = totalValueUSD - totalCostUSD;
             let totalGainPercent = 0;
             if (totalCostUSD !== 0) { totalGainPercent = (totalGainUSD / totalCostUSD) * 100; }
@@ -628,8 +676,10 @@
                 icon.className = 'fa-solid fa-arrow-trend-down text-xl';
             }
 
-            const todayPct = (Math.random() * 3.5 - 1.5);
-            const todayValUSD = totalValueUSD * (todayPct / 100);
+            // Real Today's Return
+            const todayValUSD = totalValueUSD - totalPrevValueUSD;
+            let todayPct = 0;
+            if (totalPrevValueUSD !== 0) { todayPct = (todayValUSD / totalPrevValueUSD) * 100; }
             
             let todayPrefix = "";
             const isTodayPositive = (Math.sign(todayValUSD) === 1 || Math.sign(todayValUSD) === 0);
@@ -730,7 +780,7 @@
                     pointHoverBackgroundColor: '#10b981',
                     pointHoverBorderColor: '#ffffff',
                     fill: true,
-                    tension: 0.35
+                    tension: 0.1
                 }]},
                 options: {
                     responsive: true,
@@ -797,6 +847,8 @@
         }
 
         function setTimeframe(tf) {
+            if (window.masterHistoricalData.data.length === 0) return;
+
             document.querySelectorAll('.tf-btn').forEach(function(btn) {
                 btn.className = "tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-700 text-xs font-bold transition-all";
             });
@@ -811,39 +863,29 @@
             if(tf === '1Y') { days = 365; }
             if(tf === 'ALL') { days = 1500; }
 
-            const labels = new Array(days + 1);
-            const data = new Array(days + 1);
+            // Slice real historical data
+            const totalLen = window.masterHistoricalData.data.length;
+            const sliceStart = totalLen - days - 1;
+            const safeStart = sliceStart > 0 ? sliceStart : 0;
             
-            let currentVal = window.currentPortfolioValue; 
+            const dataSlice = window.masterHistoricalData.data.slice(safeStart);
+            const dateSlice = window.masterHistoricalData.labels.slice(safeStart);
             
-            for (let i = 0; i !== days + 1; i++) {
-                const idx = days - i; 
-                data[idx] = currentVal;
-                
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                
-                let label = "";
-                if (days === 30) {
-                    label = d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+            const labels = dateSlice.map(function(d) {
+                if (days <= 30) {
+                    return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
                 } else {
-                    label = d.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
+                    return d.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
                 }
-                labels[idx] = label;
-                
-                const dailyChange = (Math.random() * 0.04 - 0.018);
-                currentVal = currentVal / (1 + dailyChange); 
-            }
+            });
             
-            if (data.length !== 0) {
-                const ath = Math.max.apply(null, data);
+            if (dataSlice.length !== 0) {
+                const ath = Math.max.apply(null, dataSlice);
                 document.getElementById('athValue').innerText = formatCurrency(ath, 'USD');
-            } else {
-                document.getElementById('athValue').innerText = "$0.00";
             }
 
             perfChart.data.labels = labels;
-            perfChart.data.datasets[0].data = data;
+            perfChart.data.datasets[0].data = dataSlice;
             perfChart.update();
         }
     </script>
