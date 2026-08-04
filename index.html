@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortTracker | Investment Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            800: '#151e32',
+                            900: '#0b132b',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        body { transition: background-color 0.3s, color 0.3s; }
+    </style>
+
+    <!-- FontAwesome & Chart.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 dark:bg-navy-900 text-slate-800 dark:text-gray-100 font-sans antialiased">
+
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-50 bg-white/80 dark:bg-navy-800/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-700/50 shadow-sm transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-500/20">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <span class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">PortTracker</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleTheme()" class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-slate-700/50 hover:bg-gray-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+                        <i class="fa-solid fa-moon dark:hidden"></i>
+                        <i class="fa-solid fa-sun hidden dark:block"></i>
+                    </button>
+                    <!-- User Profile Avatar (ZT) -->
+                    <div class="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-emerald-400 border-2 border-white dark:border-slate-800 cursor-pointer overflow-hidden shadow-sm">
+                        <img src="https://ui-avatars.com/api/?name=Z+T&background=random" alt="User Profile" class="h-full w-full object-cover">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- Multi-Sheet Input Section -->
+        <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col gap-4">
+            <h3 class="text-md font-bold text-slate-900 dark:text-white">Data Sources & Portfolios</h3>
+            
+            <div id="url-container" class="flex flex-col gap-3">
+                <!-- Default Input Row -->
+                <div class="url-input-group flex flex-col sm:flex-row gap-3 items-center">
+                    <input type="text" placeholder="Name (e.g. Main)" value="Main" class="port-name w-full sm:w-1/4 py-3 px-4 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm font-semibold">
+                    <div class="relative w-full sm:w-3/4 flex gap-2">
+                        <div class="relative flex-grow">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-file-excel text-emerald-500"></i>
+                            </div>
+                            <input type="text" placeholder="Paste Google Sheet URL here..." value="https://docs.google.com/spreadsheets/d/1JvIMnFPpDHS4mu4ellvecSjEOD2rroWddxES4Eph-lA/edit?usp=drivesdk" class="sheet-url w-full pl-12 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm">
+                        </div>
+                        <button onclick="removeUrlInput(this)" class="remove-btn w-12 h-12 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 flex-shrink-0 hidden transition-colors" title="Remove Sheet">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 mt-2 items-center justify-between border-t border-gray-100 dark:border-slate-700/50 pt-4">
+                <button onclick="addUrlInput()" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30">
+                    <i class="fa-solid fa-plus-circle"></i> Add another portfolio
+                </button>
+                <button id="loadBtn" onclick="loadPortfolios()" class="w-full sm:w-auto whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-md shadow-blue-500/20">
+                    Sync All Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Header & Multi-Select Chips -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 dark:border-slate-700/50 pb-4">
+            <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Overview</h2>
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <span class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Viewing:</span>
+                <div id="portfolioChipsContainer" class="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <!-- Chips dynamically populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Portfolio Value</p>
+                        <h3 class="text-3xl font-bold mt-2 text-slate-900 dark:text-white tracking-tight" id="totalValue">$0.00</h3>
+                    </div>
+                    <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><i class="fa-solid fa-wallet text-xl"></i></div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Gain / Loss</p>
+                        <h3 class="text-2xl font-bold mt-2 tracking-tight" id="totalGain">$0.00</h3>
+                        <p class="text-sm mt-1 font-semibold" id="totalGainPercent">0.00%</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400" id="gainIconBg"><i class="fa-solid fa-arrow-trend-up text-xl" id="gainIcon"></i></div>
+                </div>
+            </div>
+            
+            <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Today's Return</p>
+                        <h3 class="text-2xl font-bold mt-2 tracking-tight" id="todayReturn">$0.00</h3>
+                        <p class="text-sm mt-1 font-semibold" id="todayReturnPercent">0.00%</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><i class="fa-solid fa-bolt text-xl"></i></div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">All-Time High</p>
+                        <h3 class="text-2xl font-bold mt-2 text-slate-900 dark:text-white tracking-tight" id="athValue">$0.00</h3>
+                        <p class="text-sm mt-1 text-slate-500 font-medium">Over selected period</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"><i class="fa-solid fa-trophy text-xl"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Portfolio Performance</h3>
+                    <div class="flex space-x-1 bg-gray-100 dark:bg-navy-900 p-1 rounded-lg">
+                        <button id="btn-1M" onclick="setTimeframe('1M')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">1M</button>
+                        <button id="btn-6M" onclick="setTimeframe('6M')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">6M</button>
+                        <button id="btn-YTD" onclick="setTimeframe('YTD')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">YTD</button>
+                        <button id="btn-1Y" onclick="setTimeframe('1Y')" class="tf-btn px-4 py-1.5 rounded-md bg-blue-600 text-white shadow text-xs font-bold transition-all">1Y</button>
+                        <button id="btn-ALL" onclick="setTimeframe('ALL')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">ALL</button>
+                    </div>
+                </div>
+                <div class="relative flex-grow min-h-[300px]"><canvas id="performanceChart"></canvas></div>
+            </div>
+            
+            <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6">Asset Allocation</h3>
+                <div class="relative flex-grow min-h-[300px]"><canvas id="allocationChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 overflow-hidden flex flex-col">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6">Current Holdings</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <th class="px-4 py-3 font-semibold">Asset / Ticker</th>
+                            <th class="px-4 py-3 font-semibold">Shares</th>
+                            <th class="px-4 py-3 font-semibold">Avg Price</th>
+                            <th class="px-4 py-3 font-semibold">Current Price</th>
+                            <th class="px-4 py-3 font-semibold">Total Value</th>
+                            <th class="px-4 py-3 font-semibold">Unrealized P&L</th>
+                        </tr>
+                    </thead>
+                    <tbody id="holdingsBody">
+                        <tr>
+                            <td colspan="6" class="px-4 py-8 text-center text-slate-500">
+                                <i class="fa-solid fa-chart-pie mr-2"></i> Enter your Google Sheet URL(s) and click Sync.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- ZERO-BRACKET JAVASCRIPT: Extremely strict syntax to prevent Android WebView parser crashes -->
+    <script>
+        let perfChart = null;
+        let allocChart = null;
+        
+        // Master Data Object to hold isolated portfolios
+        window.portfolioData = {}; 
+        window.currentPortfolioValue = 0;
+
+        const formatCurrency = function(val) { 
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val); 
+        };
+        
+        const formatPercent = function(val) { 
+            let prefix = "";
+            if (Math.sign(val) === 1) { prefix = "+"; }
+            return prefix + val.toFixed(2) + '%'; 
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            loadPortfolios(); 
+        });
+
+        function addUrlInput() {
+            const container = document.getElementById('url-container');
+            const newGroup = document.createElement('div');
+            newGroup.className = 'url-input-group flex flex-col sm:flex-row gap-3 items-center mt-3';
+            
+            // Using hex escapes (\x3C and \x3E) to prevent HTML parser confusion on Android
+            let htmlStr = '\x3Cinput type="text" placeholder="Name (e.g. Trading)" class="port-name w-full sm:w-1/4 py-3 px-4 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm font-semibold"\x3E';
+            htmlStr += '\x3Cdiv class="relative w-full sm:w-3/4 flex gap-2"\x3E';
+            htmlStr += '\x3Cdiv class="relative flex-grow"\x3E';
+            htmlStr += '\x3Cdiv class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"\x3E\x3Ci class="fa-solid fa-file-excel text-emerald-500"\x3E\x3C/i\x3E\x3C/div\x3E';
+            htmlStr += '\x3Cinput type="text" placeholder="Paste Google Sheet URL here..." class="sheet-url w-full pl-12 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm"\x3E';
+            htmlStr += '\x3C/div\x3E';
+            htmlStr += '\x3Cbutton onclick="removeUrlInput(this)" class="remove-btn w-12 h-12 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 flex-shrink-0 transition-colors" title="Remove Sheet"\x3E\x3Ci class="fa-solid fa-trash"\x3E\x3C/i\x3E\x3C/button\x3E';
+            htmlStr += '\x3C/div\x3E';
+            
+            newGroup.innerHTML = htmlStr;
+            container.appendChild(newGroup);
+            updateRemoveButtons();
+        }
+
+        function removeUrlInput(btn) {
+            const group = btn.closest('.url-input-group');
+            if (group !== null) { group.remove(); }
+            updateRemoveButtons();
+        }
+
+        function updateRemoveButtons() {
+            const btns = document.querySelectorAll('.remove-btn');
+            const shouldHide = (btns.length === 1);
+            btns.forEach(function(btn) {
+                if (shouldHide) {
+                    btn.classList.add('hidden');
+                } else {
+                    btn.classList.remove('hidden');
+                }
+            });
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
+            Chart.defaults.scale.grid.color = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(71, 85, 105, 0.1)';
+            if(perfChart !== null) { perfChart.update(); }
+            if(allocChart !== null) { allocChart.update(); }
+        }
+
+        // Generate consistent mock prices securely
+        function generateStableMockPrice(ticker, avgPrice) {
+            let hash = 0;
+            for (let i = 0; i !== ticker.length; i++) { hash = ticker.charCodeAt(i) + ((hash << 5) - hash); }
+            const pseudoRandom = Math.abs(Math.sin(hash)); 
+            return avgPrice * (0.8 + (pseudoRandom * 0.6));
+        }
+
+        async function loadPortfolios() {
+            const groups = document.querySelectorAll('.url-input-group');
+            let fetchPromises = [];
+            
+            // Reset Data
+            window.portfolioData = {};
+
+            const btn = document.getElementById('loadBtn');
+            btn.innerHTML = '\x3Ci class="fa-solid fa-spinner fa-spin mr-2"\x3E\x3C/i\x3E Syncing...';
+            btn.disabled = true;
+
+            let validSheetCount = 0;
+
+            groups.forEach(function(group, index) {
+                const nameInput = group.querySelector('.port-name').value.trim();
+                const urlInput = group.querySelector('.sheet-url').value.trim();
+                
+                if (urlInput !== '') {
+                    validSheetCount++;
+                    let portName = nameInput;
+                    if (portName === '') { portName = 'Portfolio ' + (index + 1); }
+                    
+                    window.portfolioData[portName] = { holdingsMap: {} };
+
+                    const match = urlInput.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                    if (match !== null) {
+                        const sheetId = match[1];
+                        const gvizUrl = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/gviz/tq?tqx=out:json';
+                        
+                        const p = fetch(gvizUrl)
+                            .then(function(res) {
+                                if (res.ok !== true) { throw new Error("Network error"); }
+                                return res.text();
+                            })
+                            .then(function(text) {
+                                const jsonString = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+                                const data = JSON.parse(jsonString);
+                                if (!data || !data.table || !data.table.rows) { return; }
+
+                                const headers = data.table.cols.map(function(c) {
+                                    if (c !== null) { return c.label; }
+                                    return '';
+                                });
+
+                                let rawData = data.table.rows.map(function(row) {
+                                    let obj = {};
+                                    row.c.forEach(function(cell, i) {
+                                        let header = headers[i];
+                                        if (!header) { header = 'Column' + i; }
+                                        if (cell !== null) { obj[header] = cell.v; }
+                                    });
+                                    return obj;
+                                });
+
+                                if (headers[0] === '' && rawData.length !== 0 && typeof rawData[0]['Column0'] === 'string') {
+                                    const actualHeaders = data.table.rows[0].c.map(function(cell) {
+                                        if (cell !== null) { return cell.v; }
+                                        return '';
+                                    });
+                                    rawData = data.table.rows.slice(1).map(function(row) {
+                                        let obj = {};
+                                        row.c.forEach(function(cell, i) {
+                                            if (cell !== null) { obj[actualHeaders[i]] = cell.v; }
+                                        });
+                                        return obj;
+                                    });
+                                }
+                                processRawData(rawData, portName);
+                            })
+                            .catch(function(err) {
+                                console.error("Fetch Error for " + portName + ":", err);
+                            });
+                        fetchPromises.push(p);
+                    }
+                }
+            });
+
+            if (validSheetCount === 0) {
+                alert("Please enter at least one valid Google Sheets URL.");
+                btn.innerHTML = 'Sync All Data';
+                btn.disabled = false;
+                return;
+            }
+
+            await Promise.all(fetchPromises);
+            
+            renderChips();
+            recalculateSelectedPortfolios();
+
+            btn.innerHTML = 'Sync All Data';
+            btn.disabled = false;
+        }
+
+        function processRawData(data, portName) {
+            data.forEach(function(row) {
+                let rawTicker = row['Ticker'] || row['ticker'];
+                let rawAction = row['Action'] || row['action'];
+                let rawShares = row['Shares'] || row['shares'];
+                let rawPrice = row['Price'] || row['price'];
+                
+                if (!rawTicker || !rawAction) { return; }
+                
+                const ticker = String(rawTicker).trim();
+                const action = String(rawAction).trim().toLowerCase();
+                const shares = parseFloat(rawShares);
+                const price = parseFloat(rawPrice);
+                
+                if (isNaN(shares) || isNaN(price)) { return; }
+                
+                if (!window.portfolioData[portName].holdingsMap[ticker]) { 
+                    window.portfolioData[portName].holdingsMap[ticker] = { shares: 0, totalCost: 0 }; 
+                }
+                
+                if (action === 'buy') {
+                    window.portfolioData[portName].holdingsMap[ticker].shares += shares;
+                    window.portfolioData[portName].holdingsMap[ticker].totalCost += (shares * price);
+                } else if (action === 'sell') {
+                    let avgCost = 0;
+                    if (window.portfolioData[portName].holdingsMap[ticker].shares !== 0) {
+                        avgCost = window.portfolioData[portName].holdingsMap[ticker].totalCost / window.portfolioData[portName].holdingsMap[ticker].shares;
+                    }
+                    window.portfolioData[portName].holdingsMap[ticker].shares -= shares;
+                    window.portfolioData[portName].holdingsMap[ticker].totalCost -= (shares * avgCost);
+                }
+            });
+        }
+
+        // Multi-select UI Logic
+        function renderChips() {
+            const container = document.getElementById('portfolioChipsContainer');
+            container.innerHTML = '';
+            
+            Object.keys(window.portfolioData).forEach(function(portName) {
+                let chip = document.createElement('button');
+                // Active style by default
+                chip.className = 'port-chip active-chip px-4 py-1.5 rounded-full text-sm font-bold transition-all bg-blue-600 text-white shadow-md border border-blue-600';
+                chip.setAttribute('data-name', portName);
+                chip.innerText = portName;
+                chip.onclick = function() { toggleChip(this); };
+                container.appendChild(chip);
+            });
+        }
+
+        function toggleChip(btn) {
+            if (btn.classList.contains('active-chip')) {
+                btn.classList.remove('active-chip');
+                btn.className = 'port-chip px-4 py-1.5 rounded-full text-sm font-bold transition-all bg-white dark:bg-navy-800 text-slate-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700';
+            } else {
+                btn.classList.add('active-chip');
+                btn.className = 'port-chip active-chip px-4 py-1.5 rounded-full text-sm font-bold transition-all bg-blue-600 text-white shadow-md border border-blue-600';
+            }
+            recalculateSelectedPortfolios();
+        }
+
+        function recalculateSelectedPortfolios() {
+            const selectedNames = [];
+            const chips = document.querySelectorAll('.port-chip');
+            chips.forEach(function(chip) {
+                if (chip.classList.contains('active-chip')) {
+                    selectedNames.push(chip.getAttribute('data-name'));
+                }
+            });
+            
+            let combinedHoldingsMap = {};
+            
+            // Aggregate only selected portfolios
+            selectedNames.forEach(function(name) {
+                const hMap = window.portfolioData[name].holdingsMap;
+                Object.keys(hMap).forEach(function(ticker) {
+                    if (!combinedHoldingsMap[ticker]) {
+                        combinedHoldingsMap[ticker] = { shares: 0, totalCost: 0 };
+                    }
+                    combinedHoldingsMap[ticker].shares += hMap[ticker].shares;
+                    combinedHoldingsMap[ticker].totalCost += hMap[ticker].totalCost;
+                });
+            });
+            
+            let finalHoldings = [];
+            let totalValue = 0;
+            let totalCost = 0;
+            
+            Object.keys(combinedHoldingsMap).forEach(function(ticker) {
+                const shares = combinedHoldingsMap[ticker].shares;
+                // Ensure shares are solidly positive without bracket math
+                if (shares !== 0 && Math.sign(shares) === 1) { 
+                    const avgPrice = combinedHoldingsMap[ticker].totalCost / shares;
+                    const mockCurrentPrice = generateStableMockPrice(ticker, avgPrice);
+                    
+                    const assetValue = shares * mockCurrentPrice;
+                    const pnl = assetValue - combinedHoldingsMap[ticker].totalCost;
+                    
+                    let pnlPercent = 0;
+                    if (combinedHoldingsMap[ticker].totalCost !== 0) { 
+                        pnlPercent = (pnl / combinedHoldingsMap[ticker].totalCost) * 100; 
+                    }
+                    
+                    totalValue += assetValue;
+                    totalCost += combinedHoldingsMap[ticker].totalCost;
+                    
+                    finalHoldings.push({ 
+                        ticker: ticker, shares: shares, avgPrice: avgPrice, currentPrice: mockCurrentPrice, 
+                        totalValue: assetValue, pnl: pnl, pnlPercent: pnlPercent 
+                    });
+                }
+            });
+
+            window.currentPortfolioValue = totalValue;
+            updateDashboard(finalHoldings, totalValue, totalCost);
+        }
+
+        function updateDashboard(holdings, totalValue, totalCost) {
+            const totalGain = totalValue - totalCost;
+            let totalGainPercent = 0;
+            if (totalCost !== 0) { totalGainPercent = (totalGain / totalCost) * 100; }
+            
+            document.getElementById('totalValue').innerText = formatCurrency(totalValue);
+            
+            const gainEl = document.getElementById('totalGain');
+            const gainPctEl = document.getElementById('totalGainPercent');
+            const iconBg = document.getElementById('gainIconBg');
+            const icon = document.getElementById('gainIcon');
+            
+            let gainPrefix = "";
+            const isTotalGainPositive = (Math.sign(totalGain) === 1 || Math.sign(totalGain) === 0);
+            if (isTotalGainPositive) { gainPrefix = "+"; }
+
+            gainEl.innerText = gainPrefix + formatCurrency(totalGain);
+            gainPctEl.innerText = formatPercent(totalGainPercent);
+            
+            if (isTotalGainPositive) {
+                gainEl.className = 'text-2xl font-bold mt-2 tracking-tight text-emerald-500 dark:text-emerald-400';
+                gainPctEl.className = 'text-sm mt-1 font-semibold text-emerald-500 dark:text-emerald-400';
+                iconBg.className = 'p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+                icon.className = 'fa-solid fa-arrow-trend-up text-xl';
+            } else {
+                gainEl.className = 'text-2xl font-bold mt-2 tracking-tight text-rose-500 dark:text-rose-400';
+                gainPctEl.className = 'text-sm mt-1 font-semibold text-rose-500 dark:text-rose-400';
+                iconBg.className = 'p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400';
+                icon.className = 'fa-solid fa-arrow-trend-down text-xl';
+            }
+
+            const todayPct = (Math.random() * 3.5 - 1.5);
+            const todayVal = totalValue * (todayPct / 100);
+            
+            let todayPrefix = "";
+            const isTodayPositive = (Math.sign(todayVal) === 1 || Math.sign(todayVal) === 0);
+            if (isTodayPositive) { todayPrefix = "+"; }
+
+            document.getElementById('todayReturn').innerText = todayPrefix + formatCurrency(todayVal);
+            document.getElementById('todayReturnPercent').innerText = formatPercent(todayPct);
+            
+            let todayClass = 'text-rose-500 dark:text-rose-400';
+            if (isTodayPositive) { todayClass = 'text-emerald-500 dark:text-emerald-400'; }
+
+            document.getElementById('todayReturn').className = 'text-2xl font-bold mt-2 tracking-tight ' + todayClass;
+            document.getElementById('todayReturnPercent').className = 'text-sm mt-1 font-semibold ' + todayClass;
+
+            updateTable(holdings);
+            updateAllocationChart(holdings, totalValue);
+            
+            // Render Chart & ATH based on new value
+            setTimeframe('1Y'); 
+        }
+
+        function updateTable(holdings) {
+            const tbody = document.getElementById('holdingsBody');
+            tbody.innerHTML = '';
+            
+            if (holdings.length === 0) {
+                tbody.innerHTML = '\x3Ctr\x3E\x3Ctd colspan="6" class="px-4 py-8 text-center text-slate-500"\x3ENo active holdings found.\x3C/td\x3E\x3C/tr\x3E';
+                return;
+            }
+
+            holdings.sort(function(a, b) { return b.totalValue - a.totalValue; });
+            
+            holdings.forEach(function(h) {
+                const isGain = (Math.sign(h.pnl) === 1 || Math.sign(h.pnl) === 0);
+                let cClass = 'text-rose-500 dark:text-rose-400';
+                let gainSign = "";
+                if (isGain) { 
+                    cClass = 'text-emerald-500 dark:text-emerald-400'; 
+                    gainSign = "+";
+                }
+                
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-100 dark:border-slate-700/50 hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors group';
+                
+                let htmlStr = '\x3Ctd class="px-4 py-4 whitespace-nowrap"\x3E\x3Cdiv class="flex items-center"\x3E\x3Cdiv class="h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-xs text-slate-600 dark:text-slate-300 mr-3 border border-gray-200 dark:border-slate-600"\x3E';
+                htmlStr += h.ticker.substring(0,2).toUpperCase();
+                htmlStr += '\x3C/div\x3E\x3Cspan class="font-semibold text-slate-900 dark:text-white"\x3E';
+                htmlStr += h.ticker;
+                htmlStr += '\x3C/span\x3E\x3C/div\x3E\x3C/td\x3E\x3Ctd class="px-4 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400"\x3E';
+                htmlStr += h.shares.toLocaleString(undefined, {maximumFractionDigits:4});
+                htmlStr += '\x3C/td\x3E\x3Ctd class="px-4 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400"\x3E';
+                htmlStr += formatCurrency(h.avgPrice);
+                htmlStr += '\x3C/td\x3E\x3Ctd class="px-4 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white font-medium"\x3E';
+                htmlStr += formatCurrency(h.currentPrice);
+                htmlStr += '\x3C/td\x3E\x3Ctd class="px-4 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white font-bold"\x3E';
+                htmlStr += formatCurrency(h.totalValue);
+                htmlStr += '\x3C/td\x3E\x3Ctd class="px-4 py-4 whitespace-nowrap text-sm font-semibold ' + cClass + '"\x3E';
+                htmlStr += gainSign + formatCurrency(h.pnl) + '\x3Cbr\x3E\x3Cspan class="text-xs font-medium opacity-80"\x3E';
+                htmlStr += gainSign + h.pnlPercent.toFixed(2) + '%\x3C/span\x3E\x3C/td\x3E';
+                
+                tr.innerHTML = htmlStr;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function initCharts() {
+            const isDark = document.documentElement.classList.contains('dark');
+            Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
+            Chart.defaults.font.family = 'Inter, sans-serif';
+            
+            const tooltips = {
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                titleColor: isDark ? '#f8fafc' : '#0f172a',
+                bodyColor: isDark ? '#cbd5e1' : '#475569',
+                borderColor: isDark ? '#334155' : '#e2e8f0',
+                borderWidth: 1,
+                padding: 12,
+                displayColors: false,
+                cornerRadius: 8,
+            };
+
+            const ctxPerf = document.getElementById('performanceChart').getContext('2d');
+            const gradient = ctxPerf.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.25)'); 
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+            perfChart = new Chart(ctxPerf, {
+                type: 'line',
+                data: { labels: [], datasets: [{
+                    label: 'Portfolio Value',
+                    data: [],
+                    borderColor: '#10b981', 
+                    backgroundColor: gradient,
+                    borderWidth: 2.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: '#10b981',
+                    pointHoverBorderColor: '#ffffff',
+                    fill: true,
+                    tension: 0.35
+                }]},
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { ...tooltips, callbacks: { label: function(ctx) { return formatCurrency(ctx.parsed.y); } } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+                        y: { 
+                            grid: { color: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(71, 85, 105, 0.1)', drawBorder: false },
+                            ticks: { callback: function(val) { return '$' + (val / 1000) + 'k'; } }
+                        }
+                    },
+                    interaction: { intersect: false, mode: 'index' }
+                }
+            });
+
+            const ctxAlloc = document.getElementById('allocationChart').getContext('2d');
+            allocChart = new Chart(ctxAlloc, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Stocks', 'Crypto', 'Bonds', 'Cash'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981'],
+                        borderWidth: 0,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    cutout: '75%',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } },
+                        tooltip: { ...tooltips, callbacks: { label: function(ctx) { return ' ' + ctx.label + ': ' + formatCurrency(ctx.raw); } } }
+                    }
+                }
+            });
+        }
+
+        function updateAllocationChart(holdings, totalValue) {
+            let stocks = 0, crypto = 0, bonds = 0;
+            let cash = totalValue * 0.05; 
+            
+            holdings.forEach(function(h) {
+                if (['BTC', 'ETH', 'COIN'].some(function(c) { return h.ticker.includes(c); })) { crypto += h.totalValue; }
+                else if (['BOND', 'TLT'].some(function(c) { return h.ticker.includes(c); })) { bonds += h.totalValue; }
+                else { stocks += h.totalValue; }
+            });
+            
+            let calcStocks = totalValue - (crypto + bonds + cash);
+            if (Math.sign(calcStocks) === -1) {
+                stocks = 0;
+            } else {
+                stocks = calcStocks;
+            }
+
+            allocChart.data.datasets[0].data = [stocks, crypto, bonds, cash];
+            allocChart.update();
+        }
+
+        function setTimeframe(tf) {
+            document.querySelectorAll('.tf-btn').forEach(function(btn) {
+                btn.className = "tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-700 text-xs font-bold transition-all";
+            });
+            const activeBtn = document.getElementById('btn-' + tf);
+            activeBtn.className = "tf-btn px-4 py-1.5 rounded-md bg-blue-600 text-white shadow text-xs font-bold transition-all";
+
+            let days = 30;
+            if(tf === '6M') { days = 180; }
+            if(tf === 'YTD') { days = 220; }
+            if(tf === '1Y') { days = 365; }
+            if(tf === 'ALL') { days = 1500; }
+
+            const labels = new Array(days + 1);
+            const data = new Array(days + 1);
+            
+            let currentVal = window.currentPortfolioValue; 
+            
+            // Reversed Math Loop: Calculate backwards from the current real value 
+            // so the line ends perfectly without compounding spikes.
+            for (let i = 0; i !== days + 1; i++) {
+                const idx = days - i; 
+                
+                data[idx] = currentVal;
+                
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                
+                let label = "";
+                if (days === 30) {
+                    label = d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+                } else {
+                    label = d.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
+                }
+                labels[idx] = label;
+                
+                // Reverse the variance to walk backwards in time smoothly
+                const dailyChange = (Math.random() * 0.04 - 0.018);
+                currentVal = currentVal / (1 + dailyChange); 
+            }
+            
+            // Set All Time High Dynamically based on the generated timeframe max
+            if (data.length !== 0) {
+                const ath = Math.max.apply(null, data);
+                document.getElementById('athValue').innerText = formatCurrency(ath);
+            } else {
+                document.getElementById('athValue').innerText = "$0.00";
+            }
+
+            perfChart.data.labels = labels;
+            perfChart.data.datasets[0].data = data;
+            perfChart.update();
+        }
+    </script>
+</body>
+</html>
