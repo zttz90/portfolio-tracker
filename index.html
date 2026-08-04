@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PortTracker | Investment Dashboard</title>
+    <title>PortTracker | Secure Dashboard</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -40,213 +40,240 @@
         th:hover i.fa-sort { opacity: 0.7; }
     </style>
 
-    <!-- FontAwesome & Chart.js -->
+    <!-- FontAwesome, Chart.js & CryptoJS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body class="bg-gray-50 dark:bg-navy-900 text-slate-800 dark:text-gray-100 font-sans antialiased">
 
-    <!-- Navbar -->
-    <nav class="sticky top-0 z-50 bg-white/80 dark:bg-navy-800/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-700/50 shadow-sm transition-colors duration-300">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center gap-3">
-                    <div class="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-500/20">
-                        <i class="fa-solid fa-chart-pie"></i>
-                    </div>
-                    <span class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">PortTracker</span>
-                </div>
-                <div class="flex items-center gap-4">
-                    <button onclick="toggleTheme()" class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-slate-700/50 hover:bg-gray-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
-                        <i class="fa-solid fa-moon dark:hidden"></i>
-                        <i class="fa-solid fa-sun hidden dark:block"></i>
-                    </button>
-                    <!-- User Profile Avatar -->
-                    <div class="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-emerald-400 border-2 border-white dark:border-slate-800 cursor-pointer overflow-hidden shadow-sm">
-                        <img src="https://ui-avatars.com/api/?name=Z+T&background=random" alt="User Profile" class="h-full w-full object-cover">
-                    </div>
-                </div>
+    <!-- ======================= -->
+    <!--     LOGIN SECTION       -->
+    <!-- ======================= -->
+    <div id="login-section" class="min-h-screen flex items-center justify-center px-4 transition-colors duration-300">
+        <div class="max-w-md w-full bg-white dark:bg-navy-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700/50 text-center">
+            <div class="inline-flex bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-500/20 mb-6">
+                <i class="fa-solid fa-lock text-2xl"></i>
             </div>
+            <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Secure Dashboard</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-sm mb-8">Enter your master password to decrypt and load your portfolio data.</p>
+            
+            <div class="relative w-full mb-4">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="fa-solid fa-key text-slate-400"></i>
+                </div>
+                <input type="password" id="password-input" placeholder="Password" class="w-full pl-12 pr-4 py-3.5 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm font-medium">
+            </div>
+            
+            <button onclick="unlockDashboard()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl font-semibold transition-colors shadow-md shadow-blue-500/20">
+                Unlock Dashboard
+            </button>
+            
+            <p id="error-message" class="text-rose-500 text-sm font-semibold mt-4 hidden"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Incorrect password.</p>
         </div>
-    </nav>
+    </div>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
-        <!-- Data Sources & API Configuration -->
-        <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col gap-4">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
-                <div>
-                    <h3 class="text-md font-bold text-slate-900 dark:text-white">Data Sources & Portfolios</h3>
-                    <p class="text-xs text-slate-500 mt-1">Live data powered by Yahoo Finance (Supports US, SGX, HKEX, Crypto)</p>
-                </div>
-                <div class="flex gap-2">
-                    <span id="fxRateBadgeSGD" class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">SGD: Fetching...</span>
-                    <span id="fxRateBadgeHKD" class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">HKD: Fetching...</span>
-                </div>
-            </div>
 
-            <div id="url-container" class="flex flex-col gap-3">
-                <!-- Default Input Row -->
-                <div class="url-input-group flex flex-col sm:flex-row gap-3 items-center">
-                    <input type="text" placeholder="Name (e.g. Main)" value="Main" class="port-name w-full sm:w-1/4 py-3 px-4 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm font-semibold">
-                    <div class="relative w-full sm:w-3/4 flex gap-2">
-                        <div class="relative flex-grow">
-                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <i class="fa-solid fa-file-excel text-emerald-500"></i>
-                            </div>
-                            <input type="text" placeholder="Paste Google Sheet URL here..." value="https://docs.google.com/spreadsheets/d/1JvIMnFPpDHS4mu4ellvecSjEOD2rroWddxES4Eph-lA/edit?usp=drivesdk" class="sheet-url w-full pl-12 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm">
+    <!-- ======================= -->
+    <!--    DASHBOARD SECTION    -->
+    <!-- ======================= -->
+    <div id="dashboard-section" class="hidden">
+        <!-- Navbar -->
+        <nav class="sticky top-0 z-50 bg-white/80 dark:bg-navy-800/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-700/50 shadow-sm transition-colors duration-300">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16 items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-500/20">
+                            <i class="fa-solid fa-chart-pie"></i>
                         </div>
-                        <button onclick="removeUrlInput(this)" class="remove-btn w-12 h-12 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 flex-shrink-0 hidden transition-colors" title="Remove Sheet">
-                            <i class="fa-solid fa-trash"></i>
+                        <span class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">PortTracker</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button onclick="toggleTheme()" class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-slate-700/50 hover:bg-gray-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+                            <i class="fa-solid fa-moon dark:hidden"></i>
+                            <i class="fa-solid fa-sun hidden dark:block"></i>
                         </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-4 mt-2 items-center justify-between border-t border-gray-100 dark:border-slate-700/50 pt-4">
-                <button onclick="addUrlInput()" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30">
-                    <i class="fa-solid fa-plus-circle"></i> Add another portfolio
-                </button>
-                <button id="loadBtn" onclick="loadPortfolios()" class="w-full sm:w-auto whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-md shadow-blue-500/20">
-                    Sync Real Market Data
-                </button>
-            </div>
-        </div>
-
-        <!-- Dashboard Header & Multi-Select Chips -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 dark:border-slate-700/50 pb-4">
-            <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Overview (USD)</h2>
-            <div class="flex items-center gap-3 w-full sm:w-auto">
-                <span class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Viewing:</span>
-                <div id="portfolioChipsContainer" class="flex flex-wrap gap-2 w-full sm:w-auto">
-                    <!-- Chips dynamically populated here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Metrics Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Portfolio Value</p>
-                        <h3 class="text-3xl font-bold mt-2 text-slate-900 dark:text-white tracking-tight" id="totalValue">$0.00</h3>
-                    </div>
-                    <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><i class="fa-solid fa-wallet text-xl"></i></div>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Gain / Loss</p>
-                        <h3 class="text-2xl font-bold mt-2 tracking-tight" id="totalGain">$0.00</h3>
-                        <p class="text-sm mt-1 font-semibold" id="totalGainPercent">0.00%</p>
-                    </div>
-                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400" id="gainIconBg"><i class="fa-solid fa-arrow-trend-up text-xl" id="gainIcon"></i></div>
-                </div>
-            </div>
-            
-            <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
-                <div class="flex justify-between items-start">
-                    <div class="w-full">
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Performance (Est.)</p>
-                        <div class="mt-2 flex justify-between items-center w-full pr-2">
-                            <div>
-                                <p class="text-xs text-slate-500">MWR</p>
-                                <h3 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white" id="mwrValue">0.00%</h3>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-xs text-slate-500">TWR</p>
-                                <h3 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white" id="twrValue">0.00%</h3>
-                            </div>
+                        <!-- User Profile Avatar -->
+                        <div class="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-emerald-400 border-2 border-white dark:border-slate-800 cursor-pointer overflow-hidden shadow-sm">
+                            <img src="https://ui-avatars.com/api/?name=Z+T&background=random" alt="User Profile" class="h-full w-full object-cover">
                         </div>
                     </div>
-                    <div class="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 ml-2"><i class="fa-solid fa-percent text-xl"></i></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+            
+            <!-- Data Sources & API Configuration -->
+            <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col gap-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
+                    <div>
+                        <h3 class="text-md font-bold text-slate-900 dark:text-white">Data Sources & Portfolios</h3>
+                        <p class="text-xs text-slate-500 mt-1">Live data powered by Yahoo Finance (Supports US, SGX, HKEX, Crypto)</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <span id="fxRateBadgeSGD" class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">SGD: Fetching...</span>
+                        <span id="fxRateBadgeHKD" class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">HKD: Fetching...</span>
+                    </div>
+                </div>
+
+                <div id="url-container" class="flex flex-col gap-3">
+                    <!-- URL inputs are dynamically injected here upon unlock -->
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4 mt-2 items-center justify-between border-t border-gray-100 dark:border-slate-700/50 pt-4">
+                    <button onclick="addUrlInput('', '')" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30">
+                        <i class="fa-solid fa-plus-circle"></i> Add another portfolio
+                    </button>
+                    <button id="loadBtn" onclick="loadPortfolios()" class="w-full sm:w-auto whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-md shadow-blue-500/20">
+                        Sync Real Market Data
+                    </button>
                 </div>
             </div>
 
-            <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
-                <div class="flex justify-between items-start">
-                    <div class="w-full">
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Opportunity Cost</p>
-                        <div class="mt-2 space-y-1 w-full pr-2">
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs text-slate-500">If in S&P 500:</span>
-                                <span class="text-sm font-bold text-emerald-500 dark:text-emerald-400" id="sp500Value">$0.00</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs text-slate-500">Not Invested:</span>
-                                <span class="text-sm font-bold text-slate-600 dark:text-slate-400" id="cashValue">$0.00</span>
+            <!-- Dashboard Header & Multi-Select Chips -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 dark:border-slate-700/50 pb-4">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Overview (USD)</h2>
+                <div class="flex items-center gap-3 w-full sm:w-auto">
+                    <span class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Viewing:</span>
+                    <div id="portfolioChipsContainer" class="flex flex-wrap gap-2 w-full sm:w-auto">
+                        <!-- Chips dynamically populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Portfolio Value</p>
+                            <h3 class="text-3xl font-bold mt-2 text-slate-900 dark:text-white tracking-tight" id="totalValue">$0.00</h3>
+                        </div>
+                        <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><i class="fa-solid fa-wallet text-xl"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Gain / Loss</p>
+                            <h3 class="text-2xl font-bold mt-2 tracking-tight" id="totalGain">$0.00</h3>
+                            <p class="text-sm mt-1 font-semibold" id="totalGainPercent">0.00%</p>
+                        </div>
+                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400" id="gainIconBg"><i class="fa-solid fa-arrow-trend-up text-xl" id="gainIcon"></i></div>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
+                    <div class="flex justify-between items-start">
+                        <div class="w-full">
+                            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Performance (Est.)</p>
+                            <div class="mt-2 flex justify-between items-center w-full pr-2">
+                                <div>
+                                    <p class="text-xs text-slate-500">MWR</p>
+                                    <h3 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white" id="mwrValue">0.00%</h3>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-xs text-slate-500">TWR</p>
+                                    <h3 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white" id="twrValue">0.00%</h3>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 ml-2"><i class="fa-solid fa-scale-balanced text-xl"></i></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Portfolio Performance</h3>
-                    <div class="flex space-x-1 bg-gray-100 dark:bg-navy-900 p-1 rounded-lg">
-                        <button id="btn-1M" onclick="setTimeframe('1M')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">1M</button>
-                        <button id="btn-6M" onclick="setTimeframe('6M')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">6M</button>
-                        <button id="btn-YTD" onclick="setTimeframe('YTD')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">YTD</button>
-                        <button id="btn-1Y" onclick="setTimeframe('1Y')" class="tf-btn px-4 py-1.5 rounded-md bg-blue-600 text-white shadow text-xs font-bold transition-all">1Y</button>
-                        <button id="btn-ALL" onclick="setTimeframe('ALL')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">ALL</button>
+                        <div class="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 ml-2"><i class="fa-solid fa-percent text-xl"></i></div>
                     </div>
                 </div>
-                <div class="relative flex-grow min-h-[300px]"><canvas id="performanceChart"></canvas></div>
-            </div>
-            
-            <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6">Asset Allocation</h3>
-                <div class="relative flex-grow min-h-[300px]"><canvas id="allocationChart"></canvas></div>
-            </div>
-        </div>
 
-        <!-- Sortable Table -->
-        <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 overflow-hidden flex flex-col">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Current Holdings</h3>
-                <p class="text-xs text-slate-500">Click headers to sort</p>
+                <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
+                    <div class="flex justify-between items-start">
+                        <div class="w-full">
+                            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Opportunity Cost</p>
+                            <div class="mt-2 space-y-1 w-full pr-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-500">If in S&P 500:</span>
+                                    <span class="text-sm font-bold text-emerald-500 dark:text-emerald-400" id="sp500Value">$0.00</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-500">Not Invested:</span>
+                                    <span class="text-sm font-bold text-slate-600 dark:text-slate-400" id="cashValue">$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 ml-2"><i class="fa-solid fa-scale-balanced text-xl"></i></div>
+                    </div>
+                </div>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-gray-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            <th class="px-4 py-3 font-semibold cursor-pointer select-none group whitespace-nowrap" data-col="ticker" onclick="handleSort('ticker')">Asset / Ticker <i class="fa-solid fa-sort ml-1"></i></th>
-                            <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="shares" onclick="handleSort('shares')">Shares <i class="fa-solid fa-sort ml-1"></i></th>
-                            <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="avgPrice" onclick="handleSort('avgPrice')">Avg Price <i class="fa-solid fa-sort ml-1"></i></th>
-                            <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="currentPrice" onclick="handleSort('currentPrice')">Live Price <i class="fa-solid fa-sort ml-1"></i></th>
-                            <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="totalValueNative" onclick="handleSort('totalValueNative')">Total Val (Orig) <i class="fa-solid fa-sort ml-1"></i></th>
-                            <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap text-blue-600 dark:text-blue-400" data-col="totalValueSGD" onclick="handleSort('totalValueSGD')">Total Val (SGD) <i class="fa-solid fa-sort ml-1"></i></th>
-                            <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap text-blue-600 dark:text-blue-400" data-col="allocation" onclick="handleSort('allocation')">Alloc % <i class="fa-solid fa-sort ml-1"></i></th>
-                            <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="pnlSGD" onclick="handleSort('pnlSGD')">Unrealized P&L (SGD) <i class="fa-solid fa-sort ml-1"></i></th>
-                        </tr>
-                    </thead>
-                    <tbody id="holdingsBody">
-                        <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-slate-500">
-                                <i class="fa-solid fa-chart-pie mr-2"></i> Enter your Google Sheet URL(s) and click Sync.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Portfolio Performance</h3>
+                        <div class="flex space-x-1 bg-gray-100 dark:bg-navy-900 p-1 rounded-lg">
+                            <button id="btn-1M" onclick="setTimeframe('1M')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">1M</button>
+                            <button id="btn-6M" onclick="setTimeframe('6M')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">6M</button>
+                            <button id="btn-YTD" onclick="setTimeframe('YTD')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">YTD</button>
+                            <button id="btn-1Y" onclick="setTimeframe('1Y')" class="tf-btn px-4 py-1.5 rounded-md bg-blue-600 text-white shadow text-xs font-bold transition-all">1Y</button>
+                            <button id="btn-ALL" onclick="setTimeframe('ALL')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">ALL</button>
+                        </div>
+                    </div>
+                    <div class="relative flex-grow min-h-[300px]"><canvas id="performanceChart"></canvas></div>
+                </div>
+                
+                <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6">Asset Allocation</h3>
+                    <div class="relative flex-grow min-h-[300px]"><canvas id="allocationChart"></canvas></div>
+                </div>
             </div>
-        </div>
-    </main>
+
+            <!-- Sortable Table -->
+            <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 overflow-hidden flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Current Holdings</h3>
+                    <p class="text-xs text-slate-500">Click headers to sort</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="px-4 py-3 font-semibold cursor-pointer select-none group whitespace-nowrap" data-col="ticker" onclick="handleSort('ticker')">Asset / Ticker <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="shares" onclick="handleSort('shares')">Shares <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="avgPrice" onclick="handleSort('avgPrice')">Avg Price <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="currentPrice" onclick="handleSort('currentPrice')">Live Price <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="totalValueNative" onclick="handleSort('totalValueNative')">Total Val (Orig) <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap text-blue-600 dark:text-blue-400" data-col="totalValueSGD" onclick="handleSort('totalValueSGD')">Total Val (SGD) <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap text-blue-600 dark:text-blue-400" data-col="allocation" onclick="handleSort('allocation')">Alloc % <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-4 py-3 font-semibold cursor-pointer select-none group text-right whitespace-nowrap" data-col="pnlSGD" onclick="handleSort('pnlSGD')">Unrealized P&L (SGD) <i class="fa-solid fa-sort ml-1"></i></th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdingsBody">
+                            <tr>
+                                <td colspan="8" class="px-4 py-8 text-center text-slate-500">
+                                    <i class="fa-solid fa-chart-pie mr-2"></i> No data synced yet.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
 
     <!-- JavaScript Engine -->
     <script>
+        // ==========================================
+        //  🔒 SECURITY: PASTE YOUR ENCRYPTED STRING HERE
+        // ==========================================
+        const encryptedData = "U2FsdGVkX19B...YOUR_COPIED_GIBBERISH_STRING...==";
+
+
+        // ==========================================
+        //  CORE VARIABLES
+        // ==========================================
         let perfChart = null;
         let allocChart = null;
         
-        // Master Data & Caching Objects
         window.portfolioData = {}; 
         window.currentPortfolioValue = 0;
         window.masterHistoricalData = { labels: [], data: [] };
@@ -259,7 +286,52 @@
         window.fxRates = { SGD: 1.34, HKD: 7.82 }; 
         const assetDataCache = {};
 
-        // Explicit Currency Formatter -> Outputs "USD$ 100", "SGD$ 100"
+        // ==========================================
+        //  LOGIN / DECRYPTION LOGIC
+        // ==========================================
+        document.getElementById('password-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') unlockDashboard();
+        });
+
+        function unlockDashboard() {
+            const password = document.getElementById('password-input').value;
+            const errorMsg = document.getElementById('error-message');
+            
+            try {
+                // Attempt to decrypt
+                const bytes = CryptoJS.AES.decrypt(encryptedData, password);
+                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+                
+                if (!decryptedText) throw new Error("Decryption failed");
+                
+                // Parse the decrypted JSON
+                const sheetIDs = JSON.parse(decryptedText);
+                
+                // Hide Login, Show Dashboard
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('dashboard-section').classList.remove('hidden');
+                errorMsg.classList.add('hidden');
+
+                // Clear container and populate with decrypted URLs
+                const container = document.getElementById('url-container');
+                container.innerHTML = ''; 
+                
+                Object.keys(sheetIDs).forEach(function(key) {
+                    addUrlInput(key, sheetIDs[key]);
+                });
+
+                // Optional: Auto-load the data immediately upon unlocking
+                // loadPortfolios();
+
+            } catch (error) {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+
+        // ==========================================
+        //  FORMATTERS
+        // ==========================================
         const formatCurrency = function(val, currencyCode) { 
             const curr = currencyCode || 'USD';
             const numStr = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val); 
@@ -272,14 +344,19 @@
             return prefix + val.toFixed(2) + '%'; 
         };
 
+        // ==========================================
+        //  INITIALIZATION
+        // ==========================================
         document.addEventListener('DOMContentLoaded', async function() {
             initCharts();
             await fetchFxRates();
-            loadPortfolios(); 
             updateSortIcons();
         });
 
-        // --- Live USD Exchange Rate Fetcher ---
+
+        // ==========================================
+        //  NETWORK & API CALLS
+        // ==========================================
         async function fetchFxRates() {
             try {
                 const res = await fetch('https://open.er-api.com/v6/latest/USD');
@@ -301,7 +378,6 @@
             }
         }
 
-        // --- Helper: Detect Ticker Currency Region ---
         function getTickerCurrency(ticker) {
             const clean = ticker.toUpperCase().trim();
             if (clean.endsWith('.SI') || clean.endsWith('.SG') || clean.startsWith('SGX:')) return 'SGD';
@@ -309,11 +385,8 @@
             return 'USD';
         }
 
-        // --- Live & Historical Market Data Fetcher (Yahoo Finance via Proxy) ---
         async function fetchLiveMarketData(ticker, avgPrice) {
-            if (assetDataCache[ticker]) {
-                return assetDataCache[ticker];
-            }
+            if (assetDataCache[ticker]) return assetDataCache[ticker];
 
             try {
                 let cleanTicker = ticker.toUpperCase().trim();
@@ -325,7 +398,7 @@
                 const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
                 
                 const response = await fetch(proxyUrl);
-                if (!response.ok) { throw new Error("Yahoo fetch error"); }
+                if (!response.ok) throw new Error("Yahoo fetch error"); 
                 
                 const data = await response.json();
                 const result = data.chart?.result?.[0];
@@ -347,7 +420,7 @@
                     throw new Error("Invalid Yahoo data structure");
                 }
             } catch (err) {
-                console.warn("Proxy/Fetch Error for ticker " + ticker + " - Using avgPrice as fallback.", err);
+                console.warn("Proxy/Fetch Error for ticker " + ticker + " - Using fallback.", err);
                 assetDataCache[ticker] = {
                     currentPrice: avgPrice || 1,
                     previousClose: avgPrice || 1,
@@ -358,16 +431,22 @@
             }
         }
 
-        function addUrlInput() {
+        // ==========================================
+        //  UI MANAGEMENT
+        // ==========================================
+        function addUrlInput(defaultName, defaultUrl) {
+            const nameVal = defaultName || '';
+            const urlVal = defaultUrl || '';
+            
             const container = document.getElementById('url-container');
             const newGroup = document.createElement('div');
             newGroup.className = 'url-input-group flex flex-col sm:flex-row gap-3 items-center mt-3';
             
-            let htmlStr = '\x3Cinput type="text" placeholder="Name (e.g. Trading)" class="port-name w-full sm:w-1/4 py-3 px-4 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm font-semibold"\x3E';
+            let htmlStr = '\x3Cinput type="text" placeholder="Name (e.g. Trading)" value="' + nameVal + '" class="port-name w-full sm:w-1/4 py-3 px-4 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm font-semibold"\x3E';
             htmlStr += '\x3Cdiv class="relative w-full sm:w-3/4 flex gap-2"\x3E';
             htmlStr += '\x3Cdiv class="relative flex-grow"\x3E';
             htmlStr += '\x3Cdiv class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"\x3E\x3Ci class="fa-solid fa-file-excel text-emerald-500"\x3E\x3C/i\x3E\x3C/div\x3E';
-            htmlStr += '\x3Cinput type="text" placeholder="Paste Google Sheet URL here..." class="sheet-url w-full pl-12 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm"\x3E';
+            htmlStr += '\x3Cinput type="text" placeholder="Paste Google Sheet URL here..." value="' + urlVal + '" class="sheet-url w-full pl-12 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm"\x3E';
             htmlStr += '\x3C/div\x3E';
             htmlStr += '\x3Cbutton onclick="removeUrlInput(this)" class="remove-btn w-12 h-12 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 flex-shrink-0 transition-colors" title="Remove Sheet"\x3E\x3Ci class="fa-solid fa-trash"\x3E\x3C/i\x3E\x3C/button\x3E';
             htmlStr += '\x3C/div\x3E';
@@ -401,6 +480,9 @@
             if(allocChart !== null) { allocChart.update(); }
         }
 
+        // ==========================================
+        //  DATA PROCESSING ENGINE
+        // ==========================================
         async function loadPortfolios() {
             const groups = document.querySelectorAll('.url-input-group');
             let fetchPromises = [];
@@ -576,7 +658,7 @@
                 return combinedHoldingsMap[ticker].shares > 0;
             });
 
-            // Fetch live data for active tickers + SPY (for Opportunity Cost comparison)
+            // Fetch live data for active tickers + SPY
             const allTickersToFetch = [...activeTickers];
             if (!allTickersToFetch.includes('SPY')) { allTickersToFetch.push('SPY'); }
 
@@ -615,7 +697,6 @@
             let index = 0;
             
             processedAssets.forEach(function(data) {
-                // USD Dashboard Tracking
                 const fxMultiplierUSD = (data.currency !== 'USD') ? (1 / (window.fxRates[data.currency] || 1)) : 1; 
                 const assetValueUSD = data.shares * data.livePriceNative * fxMultiplierUSD;
                 const totalCostUSD_Asset = combinedHoldingsMap[data.ticker].totalCost * fxMultiplierUSD;
@@ -623,7 +704,6 @@
                 totalValueUSD += assetValueUSD;
                 totalCostUSD += totalCostUSD_Asset;
 
-                // SGD Math for the Table
                 const totalCostNative = combinedHoldingsMap[data.ticker].totalCost;
                 const totalCostSGD = totalCostNative * data.fxToSGD;
                 const pnlSGD = data.assetValueSGD - totalCostSGD;
@@ -648,7 +728,7 @@
             window.currentHoldingsData = finalHoldings;
             window.currentPortfolioValue = totalValueUSD;
 
-            // Compute backtest logic for the line chart
+            // Historical data backtest
             window.masterHistoricalData = { labels: [], data: [] };
             const MAX_DAYS = 1500;
             const nowSeconds = Math.floor(Date.now() / 1000);
@@ -684,15 +764,11 @@
                 window.masterHistoricalData.labels.push(d);
             }
 
-            // Update Top Dashboard
             updateDashboard(totalValueUSD, totalCostUSD);
-            
-            // Draw Table based on sort states
             renderTable();
         }
 
         function updateDashboard(totalValueUSD, totalCostUSD) {
-            // Total Gain
             const totalGainUSD = totalValueUSD - totalCostUSD;
             let totalGainPercent = 0;
             if (totalCostUSD !== 0) { totalGainPercent = (totalGainUSD / totalCostUSD) * 100; }
@@ -724,9 +800,8 @@
             }
 
             // --- Update MWR & TWR Proxies ---
-            // Estimated based on absolute total return (since exact cashflow dates are unavailable)
             const mwrEst = totalGainPercent;
-            const twrEst = totalGainPercent * 0.95; // Simulated cashflow drag variance
+            const twrEst = totalGainPercent * 0.95; 
 
             document.getElementById('mwrValue').innerText = formatPercent(mwrEst);
             document.getElementById('mwrValue').className = 'text-lg font-bold tracking-tight ' + (isTotalGainPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400');
@@ -748,25 +823,24 @@
             document.getElementById('sp500Value').innerText = formatCurrency(sp500Equivalent, 'USD');
             document.getElementById('cashValue').innerText = formatCurrency(cashEquivalent, 'USD');
 
-            // --- Update Charts ---
             updateAllocationChart(window.currentHoldingsData);
             setTimeframe('1Y'); 
         }
 
-        // --- Multi-Column Sort Logic (Excel Style) ---
+        // ==========================================
+        //  SORTING & RENDERING TABLE
+        // ==========================================
         function handleSort(col) {
             let existingIndex = window.tableSortCriteria.findIndex(function(c) { return c.col === col; });
             
             if (existingIndex === 0) {
-                // Primary sort - toggle direction: desc (1) -> asc (2) -> original (remove)
                 let criteria = window.tableSortCriteria[0];
                 if (criteria.dir === 1) { 
                     criteria.dir = 2; 
                 } else if (criteria.dir === 2) {
-                    window.tableSortCriteria.shift(); // Remove sort
+                    window.tableSortCriteria.shift(); 
                 }
             } else {
-                // Not primary - bring to front as descending
                 if (existingIndex > 0) {
                     window.tableSortCriteria.splice(existingIndex, 1);
                 }
@@ -785,10 +859,8 @@
                 return;
             }
 
-            // Create a duplicate of the array for sorting
             let displayData = window.currentHoldingsData.slice();
 
-            // Multi-criteria stable sort
             displayData.sort(function(a, b) {
                 for (let i = 0; i < window.tableSortCriteria.length; i++) {
                     const criteria = window.tableSortCriteria[i];
@@ -798,11 +870,10 @@
                     if (typeof valA === 'string') { valA = valA.toLowerCase(); }
                     if (typeof valB === 'string') { valB = valB.toLowerCase(); }
                     
-                    const dir = criteria.dir === 1 ? -1 : 1; // desc = -1, asc = 1
+                    const dir = criteria.dir === 1 ? -1 : 1; 
                     if (valA < valB) return -1 * dir;
                     if (valA > valB) return 1 * dir;
                 }
-                // Fallback to original index to preserve load order if everything matches
                 return a.originalIndex - b.originalIndex;
             });
             
@@ -845,29 +916,25 @@
         }
 
         function updateSortIcons() {
-            // Reset all icons to default
             document.querySelectorAll('th i').forEach(function(icon) {
                 icon.className = 'fa-solid fa-sort ml-1';
                 icon.style.opacity = "";
                 icon.style.color = "";
             });
 
-            // Update icons based on active sorts
             window.tableSortCriteria.forEach(function(criteria, index) {
                 const th = document.querySelector('th[data-col="' + criteria.col + '"]');
                 if (th) {
                     const icon = th.querySelector('i');
-                    if (criteria.dir === 1) { // desc
+                    if (criteria.dir === 1) { 
                         icon.className = 'fa-solid fa-sort-down ml-1';
-                    } else if (criteria.dir === 2) { // asc
+                    } else if (criteria.dir === 2) { 
                         icon.className = 'fa-solid fa-sort-up ml-1';
                     }
-                    // Highlight the primary sort column
                     if (index === 0) {
                         icon.style.opacity = "1";
                         icon.style.color = "#3b82f6"; 
                     } else {
-                        // Dimmer highlight for stacked secondary sorts
                         icon.style.opacity = "0.7";
                         icon.style.color = "#94a3b8"; 
                     }
@@ -875,6 +942,9 @@
             });
         }
 
+        // ==========================================
+        //  CHARTING ENGINE
+        // ==========================================
         function initCharts() {
             const isDark = document.documentElement.classList.contains('dark');
             Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
@@ -946,7 +1016,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false }, // Hiding legend due to potentially high number of tickers
+                        legend: { display: false }, 
                         tooltip: { ...tooltips, callbacks: { label: function(ctx) { return ' ' + ctx.label + ': ' + formatCurrency(ctx.raw, 'USD'); } } }
                     }
                 }
@@ -954,18 +1024,15 @@
         }
 
         function updateAllocationChart(holdings) {
-            // Sort holdings to put largest allocations first
             let sortedHoldings = holdings.slice().sort(function(a, b) {
                 return b.totalValueSGD - a.totalValueSGD;
             });
             
             const labels = sortedHoldings.map(function(h) { return h.ticker; });
             const data = sortedHoldings.map(function(h) { 
-                // Convert back to USD for the global base chart scaling (visual proportion remains identical to SGD)
                 return (h.currency !== 'USD') ? (h.totalValueNative / (window.fxRates[h.currency] || 1)) : h.totalValueNative;
             });
             
-            // Dynamic modern color palette for individual tickers
             const palette = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1', '#14b8a6', '#d946ef'];
             const bgColors = data.map(function(_, i) { return palette[i % palette.length]; });
 
