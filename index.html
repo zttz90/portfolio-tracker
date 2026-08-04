@@ -40,9 +40,10 @@
         th:hover i.fa-sort { opacity: 0.7; }
     </style>
 
-    <!-- FontAwesome, Chart.js & CryptoJS -->
+    <!-- FontAwesome, Chart.js, ChartDataLabels & CryptoJS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body class="bg-gray-50 dark:bg-navy-900 text-slate-800 dark:text-gray-100 font-sans antialiased">
@@ -134,7 +135,7 @@
 
             <!-- Dashboard Header & Multi-Select Chips -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 dark:border-slate-700/50 pb-4">
-                <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Overview (USD)</h2>
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Overview (SGD)</h2>
                 <div class="flex items-center gap-3 w-full sm:w-auto">
                     <span class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Viewing:</span>
                     <div id="portfolioChipsContainer" class="flex flex-wrap gap-2 w-full sm:w-auto">
@@ -186,21 +187,18 @@
                 </div>
 
                 <div class="bg-white dark:bg-navy-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700/50">
-                    <div class="flex justify-between items-start">
-                        <div class="w-full">
-                            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Opportunity Cost</p>
-                            <div class="mt-2 space-y-1 w-full pr-2">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-xs text-slate-500">If in S&P 500:</span>
-                                    <span class="text-sm font-bold text-emerald-500 dark:text-emerald-400" id="sp500Value">$0.00</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-xs text-slate-500">Not Invested:</span>
-                                    <span class="text-sm font-bold text-slate-600 dark:text-slate-400" id="cashValue">$0.00</span>
-                                </div>
+                    <div class="flex justify-between items-center h-full">
+                        <div class="w-full pr-2 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-slate-500">If in S&P 500:</span>
+                                <span class="text-lg font-bold text-emerald-500 dark:text-emerald-400" id="sp500Value">$0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-slate-500">If Cash:</span>
+                                <span class="text-lg font-bold text-slate-600 dark:text-slate-400" id="cashValue">$0.00</span>
                             </div>
                         </div>
-                        <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 ml-2"><i class="fa-solid fa-scale-balanced text-xl"></i></div>
+                        <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 ml-1"><i class="fa-solid fa-scale-balanced text-xl"></i></div>
                     </div>
                 </div>
             </div>
@@ -265,7 +263,7 @@
         // ==========================================
         //  🔒 SECURITY: PASTE YOUR ENCRYPTED STRING HERE
         // ==========================================
-        const encryptedData = "U2FsdGVkX19Wn+Rx+G9pUyAgpQ3tfQBEzdZKHd2/kYtGTzv1rj2ohYzbbuhksUrOpw4sLXw7A7V2UnKO6TEtf1sLXSJgKKKkcjbFlmjpPUMC+ZiQ9zPpJcJrR3j6HL+Uc+0sl/7ldNB6DlRiohHbSA0JeF2O7LR23ZSp6ah7io1Fr9ZKR6YSSU1aVNyJZeUb2ruqTWxv4fz6/KnF2LVpZcIbzxQEY8kDtiQI6joJwRFq3eCN6ubAEVcteQ3AqISeKXrKDzctCHnSg0t2IsZ+R7wmqVFVhEzvNuHkDr4zRBdDxAl6Y1Cjq9OuTmqSnlNt";
+        const encryptedData = "U2FsdGVkX19B...YOUR_COPIED_GIBBERISH_STRING...==";
 
 
         // ==========================================
@@ -298,30 +296,23 @@
             const errorMsg = document.getElementById('error-message');
             
             try {
-                // Attempt to decrypt
                 const bytes = CryptoJS.AES.decrypt(encryptedData, password);
                 const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
                 
                 if (!decryptedText) throw new Error("Decryption failed");
                 
-                // Parse the decrypted JSON
                 const sheetIDs = JSON.parse(decryptedText);
                 
-                // Hide Login, Show Dashboard
                 document.getElementById('login-section').classList.add('hidden');
                 document.getElementById('dashboard-section').classList.remove('hidden');
                 errorMsg.classList.add('hidden');
 
-                // Clear container and populate with decrypted URLs
                 const container = document.getElementById('url-container');
                 container.innerHTML = ''; 
                 
                 Object.keys(sheetIDs).forEach(function(key) {
                     addUrlInput(key, sheetIDs[key]);
                 });
-
-                // Optional: Auto-load the data immediately upon unlocking
-                // loadPortfolios();
 
             } catch (error) {
                 errorMsg.classList.remove('hidden');
@@ -333,7 +324,7 @@
         //  FORMATTERS
         // ==========================================
         const formatCurrency = function(val, currencyCode) { 
-            const curr = currencyCode || 'USD';
+            const curr = currencyCode || 'SGD';
             const numStr = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val); 
             return curr + '$ ' + numStr; 
         };
@@ -670,8 +661,10 @@
                 await fetchLiveMarketData(ticker, proxyPrice);
             }));
 
-            // Pass 1: Compute Total SGD to figure out Allocation %
+            // Dashboard is now completely in SGD
             let totalValueSGD_global = 0;
+            let totalCostSGD_global = 0;
+
             const processedAssets = activeTickers.map(function(ticker) {
                 const shares = combinedHoldingsMap[ticker].shares;
                 const avgPriceNative = combinedHoldingsMap[ticker].totalCost / shares;
@@ -686,26 +679,21 @@
 
                 const assetValueNative = shares * livePriceNative;
                 const assetValueSGD = assetValueNative * fxToSGD;
+                
                 totalValueSGD_global += assetValueSGD;
                 
                 return { ticker, shares, avgPriceNative, livePriceNative, currency, fxToSGD, assetValueNative, assetValueSGD };
             });
 
             let finalHoldings = [];
-            let totalValueUSD = 0;
-            let totalCostUSD = 0;
             let index = 0;
             
             processedAssets.forEach(function(data) {
-                const fxMultiplierUSD = (data.currency !== 'USD') ? (1 / (window.fxRates[data.currency] || 1)) : 1; 
-                const assetValueUSD = data.shares * data.livePriceNative * fxMultiplierUSD;
-                const totalCostUSD_Asset = combinedHoldingsMap[data.ticker].totalCost * fxMultiplierUSD;
-                
-                totalValueUSD += assetValueUSD;
-                totalCostUSD += totalCostUSD_Asset;
-
                 const totalCostNative = combinedHoldingsMap[data.ticker].totalCost;
                 const totalCostSGD = totalCostNative * data.fxToSGD;
+                
+                totalCostSGD_global += totalCostSGD;
+
                 const pnlSGD = data.assetValueSGD - totalCostSGD;
                 const pnlPercentSGD = totalCostSGD !== 0 ? (pnlSGD / totalCostSGD) * 100 : 0;
                 const allocation = totalValueSGD_global > 0 ? (data.assetValueSGD / totalValueSGD_global) * 100 : 0;
@@ -726,22 +714,25 @@
             });
 
             window.currentHoldingsData = finalHoldings;
-            window.currentPortfolioValue = totalValueUSD;
+            window.currentPortfolioValue = totalValueSGD_global;
 
-            // Historical data backtest
+            // Historical data backtest (Running completely in SGD now)
             window.masterHistoricalData = { labels: [], data: [] };
             const MAX_DAYS = 1500;
             const nowSeconds = Math.floor(Date.now() / 1000);
             
             for (let i = MAX_DAYS; i >= 0; i--) {
                 const targetSeconds = nowSeconds - (i * 86400);
-                let dayTotalUSD = 0;
+                let dayTotalSGD = 0;
                 
                 activeTickers.forEach(function(ticker) {
                     const cache = assetDataCache[ticker];
                     const shares = combinedHoldingsMap[ticker].shares;
                     const currency = getTickerCurrency(ticker);
-                    const fxMultiplier = (currency !== 'USD') ? (1 / (window.fxRates[currency] || 1)) : 1;
+                    
+                    let fxToSGD = 1;
+                    if (currency === 'USD') { fxToSGD = window.fxRates.SGD; }
+                    else if (currency === 'HKD') { fxToSGD = window.fxRates.SGD / window.fxRates.HKD; }
                     
                     let historicalPrice = cache ? cache.currentPrice : 0;
                     
@@ -756,24 +747,24 @@
                             }
                         }
                     }
-                    dayTotalUSD += (shares * historicalPrice * fxMultiplier);
+                    dayTotalSGD += (shares * historicalPrice * fxToSGD);
                 });
                 
                 const d = new Date(Date.now() - (i * 86400000));
-                window.masterHistoricalData.data.push(dayTotalUSD);
+                window.masterHistoricalData.data.push(dayTotalSGD);
                 window.masterHistoricalData.labels.push(d);
             }
 
-            updateDashboard(totalValueUSD, totalCostUSD);
+            updateDashboard(totalValueSGD_global, totalCostSGD_global);
             renderTable();
         }
 
-        function updateDashboard(totalValueUSD, totalCostUSD) {
-            const totalGainUSD = totalValueUSD - totalCostUSD;
+        function updateDashboard(totalValueSGD, totalCostSGD) {
+            const totalGainSGD = totalValueSGD - totalCostSGD;
             let totalGainPercent = 0;
-            if (totalCostUSD !== 0) { totalGainPercent = (totalGainUSD / totalCostUSD) * 100; }
+            if (totalCostSGD !== 0) { totalGainPercent = (totalGainSGD / totalCostSGD) * 100; }
             
-            document.getElementById('totalValue').innerText = formatCurrency(totalValueUSD, 'USD');
+            document.getElementById('totalValue').innerText = formatCurrency(totalValueSGD, 'SGD');
             
             const gainEl = document.getElementById('totalGain');
             const gainPctEl = document.getElementById('totalGainPercent');
@@ -781,10 +772,10 @@
             const icon = document.getElementById('gainIcon');
             
             let gainPrefix = "";
-            const isTotalGainPositive = (Math.sign(totalGainUSD) === 1 || Math.sign(totalGainUSD) === 0);
+            const isTotalGainPositive = (Math.sign(totalGainSGD) === 1 || Math.sign(totalGainSGD) === 0);
             if (isTotalGainPositive) { gainPrefix = "+"; }
 
-            gainEl.innerText = gainPrefix + formatCurrency(totalGainUSD, 'USD');
+            gainEl.innerText = gainPrefix + formatCurrency(totalGainSGD, 'SGD');
             gainPctEl.innerText = formatPercent(totalGainPercent);
             
             if (isTotalGainPositive) {
@@ -809,19 +800,19 @@
             document.getElementById('twrValue').innerText = formatPercent(twrEst);
             document.getElementById('twrValue').className = 'text-lg font-bold tracking-tight ' + (Math.sign(twrEst) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400');
 
-            // --- Opportunity Cost (S&P 500 vs Cash) ---
-            let spyReturn = 0.10; // Fallback 10%
+            // --- Opportunity Cost (S&P 500 vs Cash) converted to SGD context ---
+            let spyReturn = 0.10; 
             const spyCache = assetDataCache['SPY'];
             if (spyCache && spyCache.closes && spyCache.closes.length > 0) {
                 const currentSpy = spyCache.currentPrice;
                 const oldestSpy = spyCache.closes[0] || currentSpy;
                 spyReturn = (currentSpy - oldestSpy) / oldestSpy;
             }
-            const sp500Equivalent = totalCostUSD * (1 + spyReturn);
-            const cashEquivalent = totalCostUSD;
+            const sp500Equivalent = totalCostSGD * (1 + spyReturn);
+            const cashEquivalent = totalCostSGD;
 
-            document.getElementById('sp500Value').innerText = formatCurrency(sp500Equivalent, 'USD');
-            document.getElementById('cashValue').innerText = formatCurrency(cashEquivalent, 'USD');
+            document.getElementById('sp500Value').innerText = formatCurrency(sp500Equivalent, 'SGD');
+            document.getElementById('cashValue').innerText = formatCurrency(cashEquivalent, 'SGD');
 
             updateAllocationChart(window.currentHoldingsData);
             setTimeframe('1Y'); 
@@ -946,6 +937,8 @@
         //  CHARTING ENGINE
         // ==========================================
         function initCharts() {
+            Chart.register(ChartDataLabels); // Globally register the plugin for the pie chart
+            
             const isDark = document.documentElement.classList.contains('dark');
             Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
             Chart.defaults.font.family = 'Inter, sans-serif';
@@ -969,7 +962,7 @@
             perfChart = new Chart(ctxPerf, {
                 type: 'line',
                 data: { labels: [], datasets: [{
-                    label: 'Portfolio Value (USD)',
+                    label: 'Portfolio Value (SGD)',
                     data: [],
                     borderColor: '#10b981', 
                     backgroundColor: gradient,
@@ -986,7 +979,8 @@
                     maintainAspectRatio: false,
                     plugins: { 
                         legend: { display: false },
-                        tooltip: { ...tooltips, callbacks: { label: function(ctx) { return formatCurrency(ctx.parsed.y, 'USD'); } } }
+                        datalabels: { display: false }, // Prevent labels from polluting the line chart
+                        tooltip: { ...tooltips, callbacks: { label: function(ctx) { return formatCurrency(ctx.parsed.y, 'SGD'); } } }
                     },
                     scales: {
                         x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } },
@@ -1017,7 +1011,29 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false }, 
-                        tooltip: { ...tooltips, callbacks: { label: function(ctx) { return ' ' + ctx.label + ': ' + formatCurrency(ctx.raw, 'USD'); } } }
+                        tooltip: { 
+                            ...tooltips, 
+                            callbacks: { 
+                                label: function(ctx) { 
+                                    const total = ctx.chart._metasets[ctx.datasetIndex].total;
+                                    const percentage = ((ctx.raw / total) * 100).toFixed(2);
+                                    return ' ' + ctx.label + ': ' + formatCurrency(ctx.raw, 'SGD') + ' (' + percentage + '%)'; 
+                                } 
+                            } 
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 11 },
+                            formatter: function(value, ctx) {
+                                const total = ctx.chart._metasets[ctx.datasetIndex].total;
+                                const percentage = (value * 100 / total);
+                                if (percentage < 5) return null; // Hides label if slice is too small
+                                return ctx.chart.data.labels[ctx.dataIndex] + '\n' + percentage.toFixed(1) + '%';
+                            },
+                            textAlign: 'center',
+                            textStrokeColor: 'rgba(0,0,0,0.5)', // Adds black stroke so text is readable on light slices
+                            textStrokeWidth: 3
+                        }
                     }
                 }
             });
@@ -1029,9 +1045,7 @@
             });
             
             const labels = sortedHoldings.map(function(h) { return h.ticker; });
-            const data = sortedHoldings.map(function(h) { 
-                return (h.currency !== 'USD') ? (h.totalValueNative / (window.fxRates[h.currency] || 1)) : h.totalValueNative;
-            });
+            const data = sortedHoldings.map(function(h) { return h.totalValueSGD; });
             
             const palette = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1', '#14b8a6', '#d946ef'];
             const bgColors = data.map(function(_, i) { return palette[i % palette.length]; });
