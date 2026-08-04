@@ -35,16 +35,17 @@
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
         body { transition: background-color 0.3s, color 0.3s; }
         
-        /* Table sort icon transitions */
         th i.fa-sort { opacity: 0.3; }
         th:hover i.fa-sort { opacity: 0.7; }
     </style>
 
-    <!-- FontAwesome, Chart.js, ChartDataLabels & CryptoJS -->
+    <!-- External Libraries: FontAwesome, Chart.js, Plugins, CryptoJS, Hammer (for Panning) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body class="bg-gray-50 dark:bg-navy-900 text-slate-800 dark:text-gray-100 font-sans antialiased">
 
@@ -97,7 +98,6 @@
                             <i class="fa-solid fa-moon dark:hidden"></i>
                             <i class="fa-solid fa-sun hidden dark:block"></i>
                         </button>
-                        <!-- User Profile Avatar -->
                         <div class="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-emerald-400 border-2 border-white dark:border-slate-800 cursor-pointer overflow-hidden shadow-sm">
                             <img src="https://ui-avatars.com/api/?name=Z+T&background=random" alt="User Profile" class="h-full w-full object-cover">
                         </div>
@@ -109,7 +109,7 @@
         <!-- Main Content -->
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
             
-            <!-- Data Sources & API Configuration -->
+            <!-- Data Sources Configuration -->
             <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col gap-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
                     <div>
@@ -122,9 +122,7 @@
                     </div>
                 </div>
 
-                <div id="url-container" class="flex flex-col gap-3">
-                    <!-- URL inputs are dynamically injected here upon unlock -->
-                </div>
+                <div id="url-container" class="flex flex-col gap-3"></div>
 
                 <div class="flex flex-col sm:flex-row gap-4 mt-2 items-center justify-between border-t border-gray-100 dark:border-slate-700/50 pt-4">
                     <button onclick="addUrlInput('', '')" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30">
@@ -136,14 +134,12 @@
                 </div>
             </div>
 
-            <!-- Dashboard Header & Multi-Select Chips -->
+            <!-- Dashboard Overview Header -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 dark:border-slate-700/50 pb-4">
                 <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Overview (SGD)</h2>
                 <div class="flex items-center gap-3 w-full sm:w-auto">
                     <span class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Viewing:</span>
-                    <div id="portfolioChipsContainer" class="flex flex-wrap gap-2 w-full sm:w-auto">
-                        <!-- Chips dynamically populated here -->
-                    </div>
+                    <div id="portfolioChipsContainer" class="flex flex-wrap gap-2 w-full sm:w-auto"></div>
                 </div>
             </div>
 
@@ -206,22 +202,29 @@
                 </div>
             </div>
 
-            <!-- Charts -->
+            <!-- Charts Section -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Main Line Chart -->
                 <div class="lg:col-span-2 bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Portfolio Performance</h3>
-                        <div class="flex space-x-1 bg-gray-100 dark:bg-navy-900 p-1 rounded-lg">
-                            <button id="btn-1M" onclick="setTimeframe('1M')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">1M</button>
-                            <button id="btn-6M" onclick="setTimeframe('6M')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">6M</button>
-                            <button id="btn-YTD" onclick="setTimeframe('YTD')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">YTD</button>
-                            <button id="btn-1Y" onclick="setTimeframe('1Y')" class="tf-btn px-4 py-1.5 rounded-md bg-blue-600 text-white shadow text-xs font-bold transition-all">1Y</button>
-                            <button id="btn-ALL" onclick="setTimeframe('ALL')" class="tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">ALL</button>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Portfolio Performance</h3>
+                            <p class="text-xs text-slate-500">Drag/pan horizontally to move timeline</p>
+                        </div>
+                        <div class="flex flex-wrap space-x-1 bg-gray-100 dark:bg-navy-900 p-1 rounded-lg">
+                            <button id="btn-1M" onclick="setTimeframe('1M')" class="tf-btn px-3 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">1M</button>
+                            <button id="btn-6M" onclick="setTimeframe('6M')" class="tf-btn px-3 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">6M</button>
+                            <button id="btn-YTD" onclick="setTimeframe('YTD')" class="tf-btn px-3 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">YTD</button>
+                            <button id="btn-1Y" onclick="setTimeframe('1Y')" class="tf-btn px-3 py-1.5 rounded-md bg-blue-600 text-white shadow text-xs font-bold transition-all">1Y</button>
+                            <button id="btn-3Y" onclick="setTimeframe('3Y')" class="tf-btn px-3 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">3Y</button>
+                            <button id="btn-5Y" onclick="setTimeframe('5Y')" class="tf-btn px-3 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">5Y</button>
+                            <button id="btn-ALL" onclick="setTimeframe('ALL')" class="tf-btn px-3 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-700 text-xs font-bold transition-all">ALL</button>
                         </div>
                     </div>
-                    <div class="relative flex-grow min-h-[300px]"><canvas id="performanceChart"></canvas></div>
+                    <div class="relative flex-grow min-h-[300px] cursor-grab active:cursor-grabbing"><canvas id="performanceChart"></canvas></div>
                 </div>
                 
+                <!-- Asset Allocation Donut -->
                 <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 flex flex-col">
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6">Asset Allocation</h3>
                     <div class="relative flex-grow min-h-[300px]"><canvas id="allocationChart"></canvas></div>
@@ -232,7 +235,7 @@
             <div class="bg-white dark:bg-navy-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/50 overflow-hidden flex flex-col">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white">Current Holdings</h3>
-                    <p class="text-xs text-slate-500">Click headers to sort</p>
+                    <p class="text-xs text-slate-500">Click headers to sort. Click rows for details.</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -261,28 +264,104 @@
         </main>
     </div>
 
+    <!-- ======================= -->
+    <!--  STOCK DEEP-DIVE MODAL  -->
+    <!-- ======================= -->
+    <div id="stockModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity opacity-0 pointer-events-none" style="transition: opacity 0.2s;">
+        <div class="bg-white dark:bg-navy-800 w-11/12 max-w-5xl rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-navy-900/50">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+                    <span id="modalTickerBadge" class="bg-blue-600 text-white px-3 py-1 rounded-lg">TICKER</span>
+                    <span class="text-lg text-slate-500 font-medium">Stock Details</span>
+                </h2>
+                <button onclick="closeStockModal()" class="w-10 h-10 rounded-full bg-gray-200 dark:bg-slate-700 hover:bg-rose-500 hover:text-white transition-colors flex items-center justify-center text-slate-600 dark:text-slate-300">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- Modal Content (Scrollable) -->
+            <div class="p-6 overflow-y-auto space-y-6 flex-grow">
+                
+                <!-- Quick Stats Grid -->
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div class="bg-gray-50 dark:bg-navy-900 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                        <p class="text-xs text-slate-500 font-semibold uppercase">Total Shares</p>
+                        <p class="text-xl font-bold text-slate-900 dark:text-white mt-1" id="mStatShares">0</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-navy-900 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                        <p class="text-xs text-slate-500 font-semibold uppercase">Avg Cost</p>
+                        <p class="text-xl font-bold text-slate-900 dark:text-white mt-1" id="mStatAvgCost">0</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-navy-900 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                        <p class="text-xs text-slate-500 font-semibold uppercase">Live Price</p>
+                        <p class="text-xl font-bold text-slate-900 dark:text-white mt-1" id="mStatLive">0</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-navy-900 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                        <p class="text-xs text-slate-500 font-semibold uppercase">Total Val (SGD)</p>
+                        <p class="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1" id="mStatTotalSgd">0</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-navy-900 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                        <p class="text-xs text-slate-500 font-semibold uppercase">Unrealized P&L</p>
+                        <p class="text-xl font-bold mt-1" id="mStatPnl">0</p>
+                    </div>
+                </div>
+
+                <!-- Single Stock Historical Chart -->
+                <div class="h-[300px] w-full border border-gray-100 dark:border-slate-700 rounded-xl p-4 bg-white dark:bg-navy-800">
+                    <canvas id="modalStockChart"></canvas>
+                </div>
+
+                <!-- Transactions Ledger -->
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Transaction History</h3>
+                    <div class="overflow-x-auto rounded-xl border border-gray-100 dark:border-slate-700">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-gray-50 dark:bg-navy-900/50">
+                                <tr class="border-b border-gray-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500">
+                                    <th class="px-4 py-3 font-semibold">Date</th>
+                                    <th class="px-4 py-3 font-semibold">Action</th>
+                                    <th class="px-4 py-3 font-semibold text-right">Shares</th>
+                                    <th class="px-4 py-3 font-semibold text-right">Exec. Price</th>
+                                    <th class="px-4 py-3 font-semibold text-right">Total (Native)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalTransactionsBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- JavaScript Engine -->
     <script>
         // ==========================================
         //  🔒 SECURITY: PASTE YOUR ENCRYPTED STRING HERE
         // ==========================================
-        const encryptedData = "U2FsdGVkX19WLghzSao1ZeTCzQg03sssBnSAzjHy19Qdn1LzVkETO316nvQkOrIrk24lQVKKEOIZFCoC5/r0UnGaJb7ghuFBaey4F11/C9Jk2NqMHKkkb2CZYBQX93utXWzsa+uibL/YYZoORYS3zSBd8uzwhIN/EW5FKI86rXkOxHvTKuWRtfLqs78l6/UYQJaVutxLJz18sGPjf8vCNjEXopgKb9jNfr45MLvTS/6OEQRL3U8k0MYwQp4AbApitGFecpVGfOK+gOahPMauyd0wxn95dpy05wQgQCCDcr/kzP7I+v3eXzVd8bFwH74Y+O3TZiR/M4s9EhQezQFLtCKlSbc0TdqOHsrdMbbYk8png7W+CGpd2ODaSsT4sm2qx8Z4WswDeWrF1TD1spEcVrg6zLqbABinMop1837mrKwLdrYkFnJuZ5RvGXjIZ6RL4CA8Zf+D2vExlSWmr6QZcf1TIIwB97mXwiZDDSwTpR4ZCrdBAIYFgIHX+kwwHETbsDc0vdAJMIwZ5ei8ozvE8b1UsqTM2bKunjOGrV6hxhQ+H2kCYE9QX/vxrlaGUgTv13KCvbBt1JbbDhjEJssf71rHWQVXGCc1YDF9CLMVrSgs9aLmmagsl01uBWCwppbq";
-
+        const encryptedData = "U2FsdGVkX19B...YOUR_COPIED_GIBBERISH_STRING...==";
 
         // ==========================================
         //  CORE VARIABLES & STATE
         // ==========================================
         let perfChart = null;
         let allocChart = null;
+        let modalStockChartInstance = null;
         
         window.portfolioData = {}; 
-        window.rawTransactions = {}; // Stores raw individual trade ledgers
+        window.rawTransactions = {}; 
+        window.allTransactionsGlobally = []; // Consolidated ledger
+        
         window.currentPortfolioValue = 0;
         window.masterHistoricalData = { labels: [], data: [] };
+        window.firstTransactionDate = new Date(); // Dynamic "ALL" baseline
         
         window.tableSortCriteria = [{ col: 'totalValueSGD', dir: 1 }];
         window.currentHoldingsData = [];
-
         window.fxRates = { SGD: 1.34, HKD: 7.82 }; 
         const assetDataCache = {};
 
@@ -312,7 +391,6 @@
             const errorMsg = document.getElementById('error-message');
             const container = document.getElementById('url-container');
             
-            // Backdoor access for a blank dashboard
             if (password === "0000") {
                 document.getElementById('login-section').classList.add('hidden');
                 document.getElementById('dashboard-section').classList.remove('hidden');
@@ -344,7 +422,6 @@
             }
         }
 
-
         // ==========================================
         //  FORMATTERS & DATE PARSERS
         // ==========================================
@@ -365,11 +442,9 @@
             if (!dateVal) return new Date();
             if (dateVal instanceof Date) return dateVal;
             
-            // Try standard Date parsing first
             let d = new Date(dateVal);
             if (!isNaN(d.getTime())) return d;
             
-            // Handle DD/MM/YYYY or MM/DD/YYYY text formats
             const parts = String(dateVal).trim().split(/[\/\-\.]/);
             if (parts.length === 3) {
                 if (parts[0].length === 4) { // YYYY-MM-DD
@@ -409,7 +484,8 @@
                     cleanTicker = cleanTicker + '-USD';
                 }
 
-                const targetUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(cleanTicker) + '?interval=1d&range=5y';
+                // Fetching 10 Years to support older "ALL" timeframes safely
+                const targetUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(cleanTicker) + '?interval=1d&range=10y';
                 const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
                 
                 const response = await fetch(proxyUrl);
@@ -446,33 +522,29 @@
             }
         }
 
+        // Extremely robust backward-scanning algorithm to completely bridge `null` gaps from exchange holidays
         function getHistoricalPriceOnDate(cacheObj, targetDate) {
             if (!cacheObj || !cacheObj.timestamps || cacheObj.timestamps.length === 0) {
                 return cacheObj ? cacheObj.currentPrice : null;
             }
             const targetSec = Math.floor(targetDate.getTime() / 1000);
-            let price = null;
             
-            // Search backwards for the closest valid price on or before target date
+            // Scan backward from the end looking for the closest valid day
             for (let i = cacheObj.timestamps.length - 1; i >= 0; i--) {
-                if (cacheObj.timestamps[i] <= targetSec + 86400) {
+                if (cacheObj.timestamps[i] <= targetSec + 86400) { // allow 24h grace padding
                     if (cacheObj.closes[i] !== null && cacheObj.closes[i] !== undefined) {
-                        price = cacheObj.closes[i];
-                        break;
+                        return cacheObj.closes[i]; // Found valid past price
                     }
                 }
             }
             
-            // Fallback: If target date is before IPO/earliest data, grab the earliest valid price available
-            if (price === null) {
-                for (let i = 0; i < cacheObj.closes.length; i++) {
-                    if (cacheObj.closes[i] !== null && cacheObj.closes[i] !== undefined) {
-                        price = cacheObj.closes[i];
-                        break;
-                    }
+            // If target date is before IPO/available data, grab the earliest valid forward price
+            for (let i = 0; i < cacheObj.closes.length; i++) {
+                if (cacheObj.closes[i] !== null && cacheObj.closes[i] !== undefined) {
+                    return cacheObj.closes[i];
                 }
             }
-            return price || cacheObj.currentPrice;
+            return cacheObj.currentPrice;
         }
 
         // ==========================================
@@ -522,6 +594,7 @@
             Chart.defaults.scale.grid.color = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(71, 85, 105, 0.1)';
             if(perfChart !== null) { perfChart.update(); }
             if(allocChart !== null) { allocChart.update(); }
+            if(modalStockChartInstance !== null) { modalStockChartInstance.update(); }
         }
 
         // ==========================================
@@ -698,7 +771,7 @@
             });
             
             let combinedHoldingsMap = {};
-            let combinedTransactions = [];
+            window.allTransactionsGlobally = [];
             
             selectedNames.forEach(function(name) {
                 const hMap = window.portfolioData[name].holdingsMap;
@@ -710,15 +783,23 @@
                     combinedHoldingsMap[ticker].totalCost += hMap[ticker].totalCost;
                 });
                 if (window.rawTransactions[name]) {
-                    combinedTransactions = combinedTransactions.concat(window.rawTransactions[name]);
+                    window.allTransactionsGlobally = window.allTransactionsGlobally.concat(window.rawTransactions[name]);
                 }
             });
+
+            // Find absolute "First Transaction Date" for the ALL chart
+            if (window.allTransactionsGlobally.length > 0) {
+                const earliest = Math.min(...window.allTransactionsGlobally.map(t => t.date.getTime()));
+                window.firstTransactionDate = new Date(earliest);
+            } else {
+                window.firstTransactionDate = new Date();
+            }
             
             const activeTickers = Object.keys(combinedHoldingsMap).filter(function(ticker) {
                 return combinedHoldingsMap[ticker].shares > 0;
             });
 
-            // Fetch live & historical market data for active tickers + Benchmark & Live FX rates
+            // Pre-fetch live & historical data for all dependencies
             const allTickersToFetch = [...activeTickers];
             if (!allTickersToFetch.includes('SPY')) { allTickersToFetch.push('SPY'); }
             if (!allTickersToFetch.includes('USDSGD=X')) { allTickersToFetch.push('USDSGD=X'); }
@@ -732,7 +813,7 @@
                 await fetchLiveMarketData(ticker, proxyPrice);
             }));
 
-            // Update Live Spot FX Badges directly from Yahoo Finance data
+            // Live Spot FX Updates
             const usdSgdCache = assetDataCache['USDSGD=X'];
             const usdHkdCache = assetDataCache['USDHKD=X'];
             if (usdSgdCache && usdSgdCache.currentPrice) {
@@ -744,7 +825,7 @@
                 document.getElementById('fxRateBadgeHKD').innerText = '1 USD = ' + usdHkdCache.currentPrice.toFixed(3) + ' HKD';
             }
 
-            // Pass 1: Holdings Evaluation in SGD
+            // Evaluation Loop
             let totalValueSGD_global = 0;
             let totalCostSGD_global = 0;
 
@@ -799,19 +880,15 @@
             window.currentHoldingsData = finalHoldings;
             window.currentPortfolioValue = totalValueSGD_global;
 
-            // ========================================================
-            //  ACCURATE TRANSACTION BACKTEST & BENCHMARK CALCULATION
-            // ========================================================
+            // Accurate MWR & S&P Benchmark Logic
             let userCashflowsSGD = [];
             let spyAccumulatedShares = 0;
-
             const spyCache = assetDataCache['SPY'];
             const spyLivePrice = spyCache ? spyCache.currentPrice : 500;
             const fallbackUsdSgd = window.fxRates.SGD || 1.34;
 
-            combinedTransactions.forEach(function(tx) {
+            window.allTransactionsGlobally.forEach(function(tx) {
                 const currency = getTickerCurrency(tx.ticker);
-                
                 let historicalFxToSGD = 1;
                 if (currency === 'USD') {
                     historicalFxToSGD = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
@@ -821,42 +898,35 @@
                     historicalFxToSGD = hUsdSgd / hUsdHkd;
                 }
 
-                const nativeAmount = tx.shares * tx.price;
-                const sgdAmount = nativeAmount * historicalFxToSGD;
+                const sgdAmount = tx.shares * tx.price * historicalFxToSGD;
 
                 if (tx.action === 'buy') {
                     userCashflowsSGD.push({ date: tx.date, amount: -sgdAmount });
-
                     const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
                     const usdAmount = sgdAmount / hUsdSgd;
                     const hSpyPrice = getHistoricalPriceOnDate(spyCache, tx.date);
-                    if (hSpyPrice > 0) {
-                        spyAccumulatedShares += (usdAmount / hSpyPrice);
-                    }
+                    if (hSpyPrice > 0) spyAccumulatedShares += (usdAmount / hSpyPrice);
                 } else if (tx.action === 'sell') {
                     userCashflowsSGD.push({ date: tx.date, amount: sgdAmount });
-
                     const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
                     const usdAmount = sgdAmount / hUsdSgd;
                     const hSpyPrice = getHistoricalPriceOnDate(spyCache, tx.date);
-                    if (hSpyPrice > 0) {
-                        spyAccumulatedShares -= (usdAmount / hSpyPrice);
-                    }
+                    if (hSpyPrice > 0) spyAccumulatedShares -= (usdAmount / hSpyPrice);
                 }
             });
 
-            // Terminal Cashflow for XIRR
             const now = new Date();
             userCashflowsSGD.push({ date: now, amount: totalValueSGD_global });
-
             const sp500ValueSGD = spyAccumulatedShares * spyLivePrice * window.fxRates.SGD;
             const mwrXirr = calculateXIRR(userCashflowsSGD);
 
-            // Robust Backtest line chart loop
+            // Backtest Line Chart Data (From First Date to Today)
             window.masterHistoricalData = { labels: [], data: [] };
-            const MAX_DAYS = 1500;
+            const daysSinceStart = Math.ceil((Date.now() - window.firstTransactionDate.getTime()) / 86400000);
+            const chartDays = Math.max(30, daysSinceStart); // Make sure chart is at least 30 days wide
+            const nowSeconds = Math.floor(Date.now() / 1000);
             
-            for (let i = MAX_DAYS; i >= 0; i--) {
+            for (let i = chartDays; i >= 0; i--) {
                 const targetDate = new Date(now.getTime() - (i * 86400000));
                 let dayTotalSGD = 0;
                 
@@ -874,9 +944,7 @@
                         fxToSGD = hUsdSgd / hUsdHkd;
                     }
                     
-                    let historicalPrice = getHistoricalPriceOnDate(cache, targetDate);
-                    if (historicalPrice === null) historicalPrice = cache ? cache.currentPrice : 0;
-                    
+                    let historicalPrice = getHistoricalPriceOnDate(cache, targetDate) || 0;
                     dayTotalSGD += (shares * historicalPrice * fxToSGD);
                 });
                 
@@ -888,18 +956,17 @@
             renderTable();
         }
 
-        // --- Exact Money-Weighted Return Solver (Newton-Raphson XIRR Method) ---
+        // Extremely safe Newton-Raphson XIRR Method
         function calculateXIRR(cashflows) {
             if (cashflows.length < 2) return NaN;
             
-            let rate = 0.1; // Initial guess
+            let rate = 0.1; 
             const maxIter = 100;
             const tol = 0.0001;
             
-            const minDate = cashflows.reduce(function(min, p) { return p.date < min ? p.date : min; }, cashflows[0].date);
-            const maxDate = cashflows.reduce(function(max, p) { return p.date > max ? p.date : max; }, cashflows[0].date);
+            const minDate = cashflows.reduce((min, p) => p.date < min ? p.date : min, cashflows[0].date);
+            const maxDate = cashflows.reduce((max, p) => p.date > max ? p.date : max, cashflows[0].date);
             
-            // Prevent Infinity crash if all transactions happened strictly on the exact same day
             if (maxDate - minDate < 86400000) return NaN; 
             
             for (let iter = 0; iter < maxIter; iter++) {
@@ -920,7 +987,7 @@
                 if (isNaN(newRate) || !isFinite(newRate)) break;
                 rate = newRate;
             }
-            return NaN; // Failed to converge
+            return NaN; 
         }
 
         function updateDashboard(totalValueSGD, totalCostSGD, sp500ValueSGD, mwrXirr) {
@@ -954,8 +1021,7 @@
                 icon.className = 'fa-solid fa-arrow-trend-down text-xl';
             }
 
-            // --- Update MWR & TWR ---
-            // If XIRR fails to converge, fallback to simple absolute return
+            // Fallback gracefully to simple Return if XIRR blows up
             const mwrEst = (isNaN(mwrXirr) || !isFinite(mwrXirr)) ? totalGainPercent : mwrXirr;
             const twrEst = totalGainPercent * 0.95; 
 
@@ -965,8 +1031,6 @@
             document.getElementById('twrValue').innerText = formatPercent(twrEst);
             document.getElementById('twrValue').className = 'text-lg font-bold tracking-tight ' + (Math.sign(twrEst) >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400');
 
-            // --- Real S&P 500 Opportunity Cost in SGD ---
-            // We use the fully benchmarked sp500ValueSGD calculated in the transaction loop
             document.getElementById('sp500Value').innerText = formatCurrency(sp500ValueSGD, 'SGD');
             document.getElementById('cashValue').innerText = formatCurrency(totalCostSGD, 'SGD');
 
@@ -1033,8 +1097,10 @@
                     gainSign = "+";
                 }
                 
+                // ADDED ONCLICK HOOK TO ROW
                 const tr = document.createElement('tr');
-                tr.className = 'border-b border-gray-100 dark:border-slate-700/50 hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors group';
+                tr.setAttribute('onclick', 'openStockModal("' + h.ticker + '")');
+                tr.className = 'border-b border-gray-100 dark:border-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-800/80 transition-colors group cursor-pointer';
                 
                 let htmlStr = '\x3Ctd class="px-4 py-4 whitespace-nowrap"\x3E\x3Cdiv class="flex items-center"\x3E\x3Cdiv class="h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-xs text-slate-600 dark:text-slate-300 mr-3 border border-gray-200 dark:border-slate-600"\x3E';
                 htmlStr += h.ticker.substring(0,2).toUpperCase();
@@ -1094,6 +1160,7 @@
         // ==========================================
         function initCharts() {
             Chart.register(ChartDataLabels);
+            Chart.register(window['chartjs-plugin-zoom']); // Register Zoom Plugin
             
             const isDark = document.documentElement.classList.contains('dark');
             Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
@@ -1136,7 +1203,19 @@
                     plugins: { 
                         legend: { display: false },
                         datalabels: { display: false }, 
-                        tooltip: { ...tooltips, callbacks: { label: function(ctx) { return formatCurrency(ctx.parsed.y, 'SGD'); } } }
+                        tooltip: { ...tooltips, callbacks: { label: function(ctx) { return formatCurrency(ctx.parsed.y, 'SGD'); } } },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x',
+                                modifierKey: null,
+                            },
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: 'x'
+                            }
+                        }
                     },
                     scales: {
                         x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } },
@@ -1152,15 +1231,7 @@
             const ctxAlloc = document.getElementById('allocationChart').getContext('2d');
             allocChart = new Chart(ctxAlloc, {
                 type: 'doughnut',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        data: [],
-                        backgroundColor: [],
-                        borderWidth: 0,
-                        hoverOffset: 6
-                    }]
-                },
+                data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0, hoverOffset: 6 }] },
                 options: {
                     cutout: '65%',
                     responsive: true,
@@ -1193,18 +1264,31 @@
                     }
                 }
             });
+
+            // Initialize Stock Modal Chart structure
+            const ctxModal = document.getElementById('modalStockChart').getContext('2d');
+            modalStockChartInstance = new Chart(ctxModal, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Price', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, datalabels: { display: false }, tooltip: { ...tooltips } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+                        y: { grid: { color: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(71, 85, 105, 0.1)' } }
+                    },
+                    interaction: { intersect: false, mode: 'index' }
+                }
+            });
         }
 
         function updateAllocationChart(holdings) {
-            let sortedHoldings = holdings.slice().sort(function(a, b) {
-                return b.totalValueSGD - a.totalValueSGD;
-            });
-            
-            const labels = sortedHoldings.map(function(h) { return h.ticker; });
-            const data = sortedHoldings.map(function(h) { return h.totalValueSGD; });
-            
+            let sortedHoldings = holdings.slice().sort((a, b) => b.totalValueSGD - a.totalValueSGD);
+            const labels = sortedHoldings.map(h => h.ticker);
+            const data = sortedHoldings.map(h => h.totalValueSGD);
             const palette = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1', '#14b8a6', '#d946ef'];
-            const bgColors = data.map(function(_, i) { return palette[i % palette.length]; });
+            const bgColors = data.map((_, i) => palette[i % palette.length]);
 
             allocChart.data.labels = labels;
             allocChart.data.datasets[0].data = data;
@@ -1215,38 +1299,104 @@
         function setTimeframe(tf) {
             if (window.masterHistoricalData.data.length === 0) return;
 
-            document.querySelectorAll('.tf-btn').forEach(function(btn) {
-                btn.className = "tf-btn px-4 py-1.5 rounded-md text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-700 text-xs font-bold transition-all";
-            });
+            document.querySelectorAll('.tf-btn').forEach(btn => btn.className = "tf-btn px-3 py-1.5 rounded-md text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-700 text-xs font-bold transition-all");
             const activeBtn = document.getElementById('btn-' + tf);
-            if (activeBtn) {
-                activeBtn.className = "tf-btn px-4 py-1.5 rounded-md bg-blue-600 text-white shadow text-xs font-bold transition-all";
-            }
+            if (activeBtn) activeBtn.className = "tf-btn px-3 py-1.5 rounded-md bg-blue-600 text-white shadow text-xs font-bold transition-all";
 
             let days = 30;
-            if(tf === '6M') { days = 180; }
-            if(tf === 'YTD') { days = 220; }
-            if(tf === '1Y') { days = 365; }
-            if(tf === 'ALL') { days = 1500; }
+            if(tf === '6M') days = 180;
+            if(tf === 'YTD') days = 220; 
+            if(tf === '1Y') days = 365; 
+            if(tf === '3Y') days = 1095;
+            if(tf === '5Y') days = 1825;
+            if(tf === 'ALL') days = window.masterHistoricalData.data.length;
 
-            const totalLen = window.masterHistoricalData.data.length;
-            const sliceStart = totalLen - days - 1;
-            const safeStart = sliceStart > 0 ? sliceStart : 0;
-            
-            const dataSlice = window.masterHistoricalData.data.slice(safeStart);
-            const dateSlice = window.masterHistoricalData.labels.slice(safeStart);
-            
-            const labels = dateSlice.map(function(d) {
-                if (days <= 30) {
-                    return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
-                } else {
-                    return d.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
-                }
+            const fullLabels = window.masterHistoricalData.labels.map(d => {
+                if (days <= 30) return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+                else return d.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
             });
 
-            perfChart.data.labels = labels;
-            perfChart.data.datasets[0].data = dataSlice;
+            perfChart.data.labels = fullLabels;
+            perfChart.data.datasets[0].data = window.masterHistoricalData.data;
+
+            // Apply logical panning window limits using array index bounds
+            const maxIdx = window.masterHistoricalData.data.length - 1;
+            const minIdx = Math.max(0, maxIdx - days);
+
+            perfChart.options.scales.x.min = minIdx;
+            perfChart.options.scales.x.max = maxIdx;
             perfChart.update();
+        }
+
+        // ==========================================
+        //  STOCK DEEP-DIVE MODAL LOGIC
+        // ==========================================
+        function openStockModal(ticker) {
+            const holding = window.currentHoldingsData.find(h => h.ticker === ticker);
+            if (!holding) return;
+
+            document.getElementById('modalTickerBadge').innerText = ticker;
+            
+            // Stats
+            document.getElementById('mStatShares').innerText = holding.shares.toLocaleString(undefined, {maximumFractionDigits:4});
+            document.getElementById('mStatAvgCost').innerText = formatCurrency(holding.avgPrice, holding.currency);
+            document.getElementById('mStatLive').innerText = formatCurrency(holding.currentPrice, holding.currency);
+            document.getElementById('mStatTotalSgd').innerText = formatCurrency(holding.totalValueSGD, 'SGD');
+            
+            const isGain = Math.sign(holding.pnlSGD) >= 0;
+            const pnlColor = isGain ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400';
+            const sign = isGain ? '+' : '';
+            document.getElementById('mStatPnl').innerHTML = `<span class="${pnlColor}">${sign}${formatCurrency(holding.pnlSGD, 'SGD')} (${sign}${holding.pnlPercentSGD.toFixed(2)}%)</span>`;
+
+            // Draw Stock Chart
+            const cache = assetDataCache[ticker];
+            if (cache && cache.timestamps.length > 0) {
+                // Forward fill cleaning to make graph contiguous
+                let cleanData = [];
+                let lastValid = cache.closes.find(p => p !== null) || holding.currentPrice;
+                for(let i=0; i<cache.closes.length; i++) {
+                    if (cache.closes[i] !== null) lastValid = cache.closes[i];
+                    cleanData.push(lastValid);
+                }
+
+                modalStockChartInstance.data.labels = cache.timestamps.map(t => new Date(t*1000).toLocaleDateString('en-US', {month:'short', year:'2-digit'}));
+                modalStockChartInstance.data.datasets[0].data = cleanData;
+                modalStockChartInstance.data.datasets[0].label = `Price (${holding.currency})`;
+                modalStockChartInstance.update();
+            }
+
+            // Populate Ledger Table
+            const tbody = document.getElementById('modalTransactionsBody');
+            tbody.innerHTML = '';
+            
+            const myTxs = window.allTransactionsGlobally.filter(t => t.ticker === ticker).sort((a,b) => b.date - a.date); // Sort latest first
+            myTxs.forEach(tx => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-100 dark:border-slate-700/50 hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors';
+                
+                const actionColor = tx.action === 'buy' ? 'text-emerald-600 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/30' : 'text-rose-600 bg-rose-100 dark:text-rose-400 dark:bg-rose-900/30';
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">${tx.date.toLocaleDateString()}</td>
+                    <td class="px-4 py-3 whitespace-nowrap"><span class="px-2.5 py-1 rounded-md text-xs font-bold uppercase ${actionColor}">${tx.action}</span></td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-white font-medium text-right">${tx.shares.toLocaleString()}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400 text-right">${formatCurrency(tx.price, holding.currency)}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white text-right">${formatCurrency(tx.shares * tx.price, holding.currency)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Show Modal
+            const modal = document.getElementById('stockModal');
+            modal.classList.remove('hidden');
+            // Small delay to allow display:flex to apply before setting opacity for transition
+            setTimeout(() => { modal.classList.remove('opacity-0', 'pointer-events-none'); }, 10);
+        }
+
+        function closeStockModal() {
+            const modal = document.getElementById('stockModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => { modal.classList.add('hidden'); }, 200); // match transition duration
         }
     </script>
 </body>
