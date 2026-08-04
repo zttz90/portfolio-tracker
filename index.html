@@ -63,7 +63,10 @@
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <i class="fa-solid fa-key text-slate-400"></i>
                 </div>
-                <input type="password" id="password-input" placeholder="Password" class="w-full pl-12 pr-4 py-3.5 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm font-medium">
+                <input type="password" id="password-input" placeholder="Password" class="w-full pl-12 pr-12 py-3.5 rounded-xl bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors text-sm font-medium">
+                <div class="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer text-slate-400 hover:text-slate-600 transition-colors" onclick="togglePasswordVisibility()">
+                    <i id="password-toggle-icon" class="fa-solid fa-eye"></i>
+                </div>
             </div>
             
             <button onclick="unlockDashboard()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl font-semibold transition-colors shadow-md shadow-blue-500/20">
@@ -290,10 +293,35 @@
             if (e.key === 'Enter') unlockDashboard();
         });
 
+        function togglePasswordVisibility() {
+            const input = document.getElementById('password-input');
+            const icon = document.getElementById('password-toggle-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
         function unlockDashboard() {
             const password = document.getElementById('password-input').value;
             const errorMsg = document.getElementById('error-message');
+            const container = document.getElementById('url-container');
             
+            // Backdoor access for a blank dashboard
+            if (password === "0000") {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('dashboard-section').classList.remove('hidden');
+                errorMsg.classList.add('hidden');
+                container.innerHTML = ''; 
+                addUrlInput('', '');
+                return;
+            }
+
             try {
                 const bytes = CryptoJS.AES.decrypt(encryptedData, password);
                 const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
@@ -306,9 +334,7 @@
                 document.getElementById('dashboard-section').classList.remove('hidden');
                 errorMsg.classList.add('hidden');
 
-                const container = document.getElementById('url-container');
                 container.innerHTML = ''; 
-                
                 Object.keys(sheetIDs).forEach(function(key) {
                     addUrlInput(key, sheetIDs[key]);
                 });
@@ -420,23 +446,33 @@
             }
         }
 
-        // Helper to query historical price or FX rate at a specific target Date
         function getHistoricalPriceOnDate(cacheObj, targetDate) {
             if (!cacheObj || !cacheObj.timestamps || cacheObj.timestamps.length === 0) {
                 return cacheObj ? cacheObj.currentPrice : null;
             }
             const targetSec = Math.floor(targetDate.getTime() / 1000);
-            let price = cacheObj.closes[0] || cacheObj.currentPrice;
+            let price = null;
             
+            // Search backwards for the closest valid price on or before target date
             for (let i = cacheObj.timestamps.length - 1; i >= 0; i--) {
                 if (cacheObj.timestamps[i] <= targetSec + 86400) {
                     if (cacheObj.closes[i] !== null && cacheObj.closes[i] !== undefined) {
                         price = cacheObj.closes[i];
+                        break;
                     }
-                    break;
                 }
             }
-            return price;
+            
+            // Fallback: If target date is before IPO/earliest data, grab the earliest valid price available
+            if (price === null) {
+                for (let i = 0; i < cacheObj.closes.length; i++) {
+                    if (cacheObj.closes[i] !== null && cacheObj.closes[i] !== undefined) {
+                        price = cacheObj.closes[i];
+                        break;
+                    }
+                }
+            }
+            return price || cacheObj.currentPrice;
         }
 
         // ==========================================
@@ -601,7 +637,6 @@
                 
                 if (isNaN(shares) || isNaN(price)) { return; }
 
-                // Store raw ledger entry
                 window.rawTransactions[portName].push({
                     ticker: ticker,
                     action: action,
@@ -777,25 +812,21 @@
             combinedTransactions.forEach(function(tx) {
                 const currency = getTickerCurrency(tx.ticker);
                 
-                // Get historical FX rate on transaction date
                 let historicalFxToSGD = 1;
                 if (currency === 'USD') {
                     historicalFxToSGD = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
                 } else if (currency === 'HKD') {
                     const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
-                    const hUsdHkd = getHistoricalPriceOnDate(assetDataCache['USDHKD=X'], tx.date) || (window.fxRates.HKD || 7.82);
+                    const hUsdHkd = getHistoricalPriceOnDate(usdHkdCache, tx.date) || (window.fxRates.HKD || 7.82);
                     historicalFxToSGD = hUsdSgd / hUsdHkd;
                 }
 
-                // Native Cash flow amount
                 const nativeAmount = tx.shares * tx.price;
                 const sgdAmount = nativeAmount * historicalFxToSGD;
 
-                // Cashflow direction for MWR/XIRR: Buys are capital inputs (-), Sells are returns (+)
                 if (tx.action === 'buy') {
                     userCashflowsSGD.push({ date: tx.date, amount: -sgdAmount });
 
-                    // Hypothetical S&P 500 purchase on transaction date
                     const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
                     const usdAmount = sgdAmount / hUsdSgd;
                     const hSpyPrice = getHistoricalPriceOnDate(spyCache, tx.date);
@@ -805,7 +836,6 @@
                 } else if (tx.action === 'sell') {
                     userCashflowsSGD.push({ date: tx.date, amount: sgdAmount });
 
-                    // Sell SPY equivalent on that date
                     const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, tx.date) || fallbackUsdSgd;
                     const usdAmount = sgdAmount / hUsdSgd;
                     const hSpyPrice = getHistoricalPriceOnDate(spyCache, tx.date);
@@ -815,23 +845,19 @@
                 }
             });
 
-            // Add final current market terminal value cashflow for XIRR
+            // Terminal Cashflow for XIRR
             const now = new Date();
             userCashflowsSGD.push({ date: now, amount: totalValueSGD_global });
 
-            // Calculate S&P 500 current equivalent value in SGD
             const sp500ValueSGD = spyAccumulatedShares * spyLivePrice * window.fxRates.SGD;
-
-            // Calculate Exact MWR / XIRR
             const mwrXirr = calculateXIRR(userCashflowsSGD);
 
-            // Backtest line chart
+            // Robust Backtest line chart loop
             window.masterHistoricalData = { labels: [], data: [] };
             const MAX_DAYS = 1500;
-            const nowSeconds = Math.floor(Date.now() / 1000);
             
             for (let i = MAX_DAYS; i >= 0; i--) {
-                const targetSeconds = nowSeconds - (i * 86400);
+                const targetDate = new Date(now.getTime() - (i * 86400000));
                 let dayTotalSGD = 0;
                 
                 activeTickers.forEach(function(ticker) {
@@ -840,28 +866,22 @@
                     const currency = getTickerCurrency(ticker);
                     
                     let fxToSGD = 1;
-                    if (currency === 'USD') { fxToSGD = window.fxRates.SGD; }
-                    else if (currency === 'HKD') { fxToSGD = window.fxRates.SGD / window.fxRates.HKD; }
-                    
-                    let historicalPrice = cache ? cache.currentPrice : 0;
-                    
-                    if (cache && cache.timestamps && cache.timestamps.length > 0) {
-                        historicalPrice = cache.closes[0] || historicalPrice; 
-                        for (let j = cache.timestamps.length - 1; j >= 0; j--) {
-                            if (cache.timestamps[j] <= targetSeconds + 86400) {
-                                if (cache.closes[j] !== null && cache.closes[j] !== undefined) {
-                                    historicalPrice = cache.closes[j];
-                                }
-                                break;
-                            }
-                        }
+                    if (currency === 'USD') { 
+                        fxToSGD = getHistoricalPriceOnDate(usdSgdCache, targetDate) || window.fxRates.SGD; 
+                    } else if (currency === 'HKD') { 
+                        const hUsdSgd = getHistoricalPriceOnDate(usdSgdCache, targetDate) || window.fxRates.SGD;
+                        const hUsdHkd = getHistoricalPriceOnDate(usdHkdCache, targetDate) || window.fxRates.HKD;
+                        fxToSGD = hUsdSgd / hUsdHkd;
                     }
+                    
+                    let historicalPrice = getHistoricalPriceOnDate(cache, targetDate);
+                    if (historicalPrice === null) historicalPrice = cache ? cache.currentPrice : 0;
+                    
                     dayTotalSGD += (shares * historicalPrice * fxToSGD);
                 });
                 
-                const d = new Date(Date.now() - (i * 86400000));
                 window.masterHistoricalData.data.push(dayTotalSGD);
-                window.masterHistoricalData.labels.push(d);
+                window.masterHistoricalData.labels.push(targetDate);
             }
 
             updateDashboard(totalValueSGD_global, totalCostSGD_global, sp500ValueSGD, mwrXirr);
@@ -879,7 +899,7 @@
             const minDate = cashflows.reduce(function(min, p) { return p.date < min ? p.date : min; }, cashflows[0].date);
             const maxDate = cashflows.reduce(function(max, p) { return p.date > max ? p.date : max; }, cashflows[0].date);
             
-            // Prevent infinity crash if all transactions happened strictly on the exact same day
+            // Prevent Infinity crash if all transactions happened strictly on the exact same day
             if (maxDate - minDate < 86400000) return NaN; 
             
             for (let iter = 0; iter < maxIter; iter++) {
